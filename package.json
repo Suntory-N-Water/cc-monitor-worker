@@ -1,0 +1,29 @@
+{
+  "name": "cloudflare-workers-template",
+  "version": "0.0.0",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy --minify",
+    "cf-typegen": "wrangler types --env-interface CloudflareBindings",
+    "format": "biome format --write .",
+    "lint": "biome lint .",
+    "lint:ai": "set -o pipefail && biome lint . --reporter=github 2>&1 | { grep '^::' || true; }",
+    "lint:fix": "biome lint --write .",
+    "lint:unsafe-fix": "biome lint --write --unsafe .",
+    "type-check": "tsc --noEmit",
+    "type-check:ai": "tsc --noEmit 2>&1",
+    "ai-check": "bun run format && bun run lint:ai && bun run type-check:ai"
+  },
+  "dependencies": {
+    "hono": "^4.12.18"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.4.15",
+    "@tsconfig/strictest": "^2.0.8",
+    "@types/bun": "^1.3.14",
+    "@types/node": "^25.7.0",
+    "wrangler": "^4.90.1"
+  }
+}
