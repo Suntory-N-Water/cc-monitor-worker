@@ -42,7 +42,9 @@
       "WebFetch",
       "WebSearch",
       "Bash(wc:*)",
-      "Bash(ls:*)"
+      "Bash(ls:*)",
+      "Bash(rtk *)",
+      "Bash(notebooklm *)"
     ],
     "deny": [
       "Bash(rm -rf:*)",
@@ -63,6 +65,49 @@
       "Bash(git switch:*)",
       "Bash(rm:*)",
       "Bash(curl:*)"
+    ]
+  },
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bun run --silent -i ~/.claude/scripts/typescript/multi-command-check.ts -c format,lint:ai",
+            "statusMessage": "静的解析・テスト実行中..."
+          },
+          {
+            "type": "command",
+            "command": "bun run --silent -i ~/.claude/scripts/typescript/fix-brackets.ts",
+            "statusMessage": "ブラケット修正中..."
+          },
+          {
+            "type": "command",
+            "command": "afplay /System/Library/Sounds/Glass.aiff",
+            "async": true
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bun run --silent -i ~/.claude/scripts/typescript/no-restricted-edit.ts"
+          }
+        ]
+      },
+      {
+        "matcher": "WebFetch|Fetch",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bun run --silent -i ~/.claude/scripts/typescript/web-fetch-advice.ts"
+          }
+        ]
+      }
     ]
   },
   "plansDirectory": ".claude/plans",
