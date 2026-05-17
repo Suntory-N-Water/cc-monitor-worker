@@ -1,5 +1,5 @@
 {
-  "name": "cloudflare-workers-template",
+  "name": "cc-monitor-worker",
   "version": "0.0.0",
   "type": "module",
   "private": true,
@@ -14,16 +14,21 @@
     "lint:unsafe-fix": "biome lint --write --unsafe .",
     "type-check": "tsc --noEmit",
     "type-check:ai": "tsc --noEmit 2>&1",
-    "ai-check": "bun run format && bun run lint:ai && bun run type-check:ai"
+    "ai-check": "bun run format && bun run lint:ai && bun run type-check:ai",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate:local": "wrangler d1 migrations apply claude-code-analytics-db --local",
+    "db:migrate:remote": "wrangler d1 migrations apply claude-code-analytics-db --remote"
   },
   "dependencies": {
+    "drizzle-orm": "^0.45.2",
     "hono": "^4.12.18"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.4.15",
+    "@biomejs/biome": "2.4.15",
     "@tsconfig/strictest": "^2.0.8",
     "@types/bun": "^1.3.14",
     "@types/node": "^25.7.0",
+    "drizzle-kit": "^0.31.10",
     "wrangler": "^4.90.1"
   }
 }
