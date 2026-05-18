@@ -1,0 +1,1 @@
+ALTER TABLE `token_usage` ADD `token_type` text;

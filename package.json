@@ -20,8 +20,10 @@
     "db:migrate:remote": "wrangler d1 migrations apply claude-code-analytics-db --remote"
   },
   "dependencies": {
+    "@hono/standard-validator": "^0.2.2",
     "drizzle-orm": "^0.45.2",
-    "hono": "^4.12.18"
+    "hono": "^4.12.18",
+    "valibot": "^1.4.0"
   },
   "devDependencies": {
     "@biomejs/biome": "2.4.15",
