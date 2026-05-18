@@ -142,6 +142,30 @@ JOIN plugins p ON c.plugin_id = p.id
 GROUP BY p.plugin_name ORDER BY total_usd DESC;
 ```
 
+## 新しいメトリクス・イベントの追加
+
+Claude Code が送信するメトリクス・イベントのうち、現在未収集のものを追加する手順。既存コードへの変更は不要で、すべて追加のみ。
+
+### メトリクス追加(`/v1/metrics`)
+
+1. `src/db/schema.ts` — テーブル定義と Insert 型を追加
+2. `src/lib/otlp.ts` — `METRIC` 定数にメトリクス名を追加
+3. `src/routes/metrics.ts` — `if (metricName === METRIC.XXX)` の分岐を追加
+4. マイグレーション生成・適用
+
+```bash
+bun run db:generate
+bun run db:migrate:local   # 動作確認後
+bun run db:migrate:remote  # 本番反映
+```
+
+### イベント追加(`/v1/logs`)
+
+1. `src/db/schema.ts` — テーブル定義と Insert 型を追加
+2. `src/lib/otlp.ts` — `EVENT` 定数にイベント名を追加
+3. `src/routes/logs.ts` — `if (eventName === EVENT.XXX)` の分岐を追加
+4. マイグレーション生成・適用(上記と同様)
+
 ## トークンのローテーション
 
 漏洩時は以下の手順で更新する:
