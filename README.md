@@ -22,6 +22,114 @@ Cloudflare D1(SQLite)
 
 メンバー側の作業は不要。管理者が claude.ai Admin Settings で managed settings を配布するだけで自動収集が始まる。
 
+### システムフロー
+
+```mermaid
+sequenceDiagram
+    participant CC as Claude Code<br/>(各メンバー)
+    participant Admin as 管理者<br/>(claude.ai Admin)
+    participant W as Cloudflare Worker
+    participant D1 as Cloudflare D1<br/>(SQLite)
+
+    Admin->>CC: managed settings 配布<br/>(OTLP エンドポイント・Bearer トークン)
+
+    loop セッション中・定期送信
+        CC->>W: POST /v1/logs<br/>Authorization: Bearer <token><br/>(OTLP http/json)
+        W->>W: Bearer 認証
+        W->>W: valibot でペイロード検証
+        alt skill_activated
+            W->>D1: INSERT skill_events
+        else plugin_loaded / plugin_installed
+            W->>D1: UPSERT plugins<br/>INSERT plugin_events
+        end
+        W-->>CC: 200 { partialSuccess: {} }
+
+        CC->>W: POST /v1/metrics<br/>Authorization: Bearer <token><br/>(OTLP http/json)
+        W->>W: Bearer 認証
+        W->>W: valibot でペイロード検証
+        alt claude_code.cost.usage
+            W->>D1: INSERT cost_usage
+        else claude_code.token.usage
+            W->>D1: INSERT token_usage
+        else claude_code.session.count
+            W->>D1: INSERT session_counts
+        end
+        W-->>CC: 200 { partialSuccess: {} }
+    end
+```
+
+### ER 図
+
+```mermaid
+erDiagram
+    plugins {
+        int id PK
+        text plugin_name UK
+        text marketplace_name
+    }
+
+    skill_events {
+        int id PK
+        text timestamp
+        text user_email
+        text session_id
+        text skill_name
+        text invocation_trigger
+        text skill_source
+        int plugin_id FK
+        text raw
+    }
+
+    plugin_events {
+        int id PK
+        text timestamp
+        text event_name
+        text user_email
+        text session_id
+        int plugin_id FK
+        text raw
+    }
+
+    cost_usage {
+        int id PK
+        text timestamp
+        text user_email
+        text session_id
+        text model
+        real cost_usd
+        text skill_name
+        int plugin_id FK
+        text raw
+    }
+
+    token_usage {
+        int id PK
+        text timestamp
+        text user_email
+        text session_id
+        text model
+        text token_type
+        int token_count
+        text skill_name
+        int plugin_id FK
+        text raw
+    }
+
+    session_counts {
+        int id PK
+        text timestamp
+        text user_email
+        text session_id
+        int count
+        text raw
+    }
+
+    plugins ||--o{ skill_events : "plugin_id"
+    plugins ||--o{ plugin_events : "plugin_id"
+    plugins ||--o{ cost_usage : "plugin_id"
+    plugins ||--o{ token_usage : "plugin_id"
+```
+
 ## 収集するデータ
 
 | イベント | エンドポイント | 格納先 |
