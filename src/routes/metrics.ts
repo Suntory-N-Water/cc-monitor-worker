@@ -81,8 +81,11 @@ metricsRoute.post(
             }
 
             if (metricName === METRIC.TOKEN_USAGE) {
-              const { asInt } = dataPointValue(point);
-              if (asInt !== undefined) {
+              const { asInt, asDouble } = dataPointValue(point);
+              const tokenCount =
+                asInt ??
+                (asDouble !== undefined ? Math.round(asDouble) : undefined);
+              if (tokenCount !== undefined) {
                 const pluginName = extractAttrString(
                   pointAttrs,
                   ATTR.PLUGIN_NAME,
@@ -102,7 +105,7 @@ metricsRoute.post(
                   sessionId,
                   model,
                   tokenType: extractAttrString(pointAttrs, ATTR.TYPE),
-                  tokenCount: asInt,
+                  tokenCount,
                   skillName: extractAttrString(pointAttrs, ATTR.SKILL_NAME),
                   pluginId,
                   appVersion,
@@ -113,13 +116,16 @@ metricsRoute.post(
             }
 
             if (metricName === METRIC.SESSION_COUNT) {
-              const { asInt } = dataPointValue(point);
-              if (asInt !== undefined) {
+              const { asInt, asDouble } = dataPointValue(point);
+              const count =
+                asInt ??
+                (asDouble !== undefined ? Math.round(asDouble) : undefined);
+              if (count !== undefined) {
                 sessionRows.push({
                   timestamp,
                   userEmail,
                   sessionId,
-                  count: asInt,
+                  count,
                   appVersion,
                   raw,
                 });
