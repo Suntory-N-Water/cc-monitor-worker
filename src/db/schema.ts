@@ -23,6 +23,7 @@ export const skillEvents = sqliteTable(
     invocationTrigger: text('invocation_trigger'),
     skillSource: text('skill_source'),
     pluginId: integer('plugin_id').references(() => plugins.id),
+    appVersion: text('app_version'),
     raw: text('raw'),
   },
   (t) => [
@@ -42,6 +43,7 @@ export const pluginEvents = sqliteTable(
     userEmail: text('user_email'),
     sessionId: text('session_id'),
     pluginId: integer('plugin_id').references(() => plugins.id),
+    appVersion: text('app_version'),
     raw: text('raw'),
   },
   (t) => [
@@ -61,6 +63,7 @@ export const costUsage = sqliteTable(
     costUsd: real('cost_usd').notNull(),
     skillName: text('skill_name'),
     pluginId: integer('plugin_id').references(() => plugins.id),
+    appVersion: text('app_version'),
     raw: text('raw'),
   },
   (t) => [
@@ -81,6 +84,7 @@ export const tokenUsage = sqliteTable(
     tokenCount: integer('token_count').notNull(),
     skillName: text('skill_name'),
     pluginId: integer('plugin_id').references(() => plugins.id),
+    appVersion: text('app_version'),
     raw: text('raw'),
   },
   (t) => [
@@ -97,6 +101,7 @@ export const sessionCounts = sqliteTable(
     userEmail: text('user_email'),
     sessionId: text('session_id'),
     count: integer('count').notNull(),
+    appVersion: text('app_version'),
     raw: text('raw'),
   },
   (t) => [
@@ -105,8 +110,33 @@ export const sessionCounts = sqliteTable(
   ],
 );
 
+export const apiRequests = sqliteTable(
+  'api_requests',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    timestamp: text('timestamp').notNull(),
+    userEmail: text('user_email'),
+    sessionId: text('session_id'),
+    model: text('model'),
+    costUsd: real('cost_usd'),
+    durationMs: integer('duration_ms'),
+    inputTokens: integer('input_tokens'),
+    outputTokens: integer('output_tokens'),
+    cacheReadTokens: integer('cache_read_tokens'),
+    cacheCreationTokens: integer('cache_creation_tokens'),
+    appVersion: text('app_version'),
+    raw: text('raw'),
+  },
+  (t) => [
+    index('api_requests_timestamp_idx').on(t.timestamp),
+    index('api_requests_user_email_idx').on(t.userEmail),
+    index('api_requests_session_id_idx').on(t.sessionId),
+  ],
+);
+
 export type InsertSkillEvent = typeof skillEvents.$inferInsert;
 export type InsertPluginEvent = typeof pluginEvents.$inferInsert;
 export type InsertCostUsage = typeof costUsage.$inferInsert;
 export type InsertTokenUsage = typeof tokenUsage.$inferInsert;
 export type InsertSessionCount = typeof sessionCounts.$inferInsert;
+export type InsertApiRequest = typeof apiRequests.$inferInsert;

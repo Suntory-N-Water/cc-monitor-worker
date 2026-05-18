@@ -79,12 +79,20 @@ export const ATTR = {
   MARKETPLACE_NAME: 'marketplace.name',
   MODEL: 'model',
   TYPE: 'type',
+  APP_VERSION: 'app.version',
+  COST_USD: 'cost_usd',
+  DURATION_MS: 'duration_ms',
+  INPUT_TOKENS: 'input_tokens',
+  OUTPUT_TOKENS: 'output_tokens',
+  CACHE_READ_TOKENS: 'cache_read_tokens',
+  CACHE_CREATION_TOKENS: 'cache_creation_tokens',
 } as const;
 
 export const EVENT = {
   SKILL_ACTIVATED: 'skill_activated',
   PLUGIN_LOADED: 'plugin_loaded',
   PLUGIN_INSTALLED: 'plugin_installed',
+  API_REQUEST: 'api_request',
 } as const;
 
 export const METRIC = {
@@ -104,6 +112,48 @@ export function extractAttrString(
     return;
   }
   return found.value.stringValue;
+}
+
+export function extractAttrDouble(
+  attrs: OtlpAttribute[] | undefined,
+  key: AttrKey,
+): number | undefined {
+  const found = attrs?.find((a) => a.key === key);
+  if (!found) {
+    return;
+  }
+  if (found.value.doubleValue !== undefined) {
+    return found.value.doubleValue;
+  }
+  if (found.value.intValue !== undefined) {
+    return Number(found.value.intValue);
+  }
+  if (found.value.stringValue !== undefined) {
+    const n = Number(found.value.stringValue);
+    return Number.isNaN(n) ? undefined : n;
+  }
+  return;
+}
+
+export function extractAttrInt(
+  attrs: OtlpAttribute[] | undefined,
+  key: AttrKey,
+): number | undefined {
+  const found = attrs?.find((a) => a.key === key);
+  if (!found) {
+    return;
+  }
+  if (found.value.intValue !== undefined) {
+    return Number(found.value.intValue);
+  }
+  if (found.value.doubleValue !== undefined) {
+    return Math.round(found.value.doubleValue);
+  }
+  if (found.value.stringValue !== undefined) {
+    const n = Number(found.value.stringValue);
+    return Number.isNaN(n) ? undefined : Math.round(n);
+  }
+  return;
 }
 
 export function nanoToIso(timeUnixNano: string | undefined): string {

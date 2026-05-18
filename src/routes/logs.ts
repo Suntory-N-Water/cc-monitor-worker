@@ -2,8 +2,10 @@ import { sValidator } from '@hono/standard-validator';
 import { drizzle } from 'drizzle-orm/d1';
 import { Hono } from 'hono';
 import {
+  type InsertApiRequest,
   type InsertPluginEvent,
   type InsertSkillEvent,
+  apiRequests,
   pluginEvents,
   skillEvents,
 } from '../db/schema';
@@ -12,6 +14,8 @@ import {
   ATTR,
   EVENT,
   OtlpLogsPayloadSchema,
+  extractAttrDouble,
+  extractAttrInt,
   extractAttrString,
   nanoToIso,
 } from '../lib/otlp';
@@ -25,6 +29,7 @@ logsRoute.post('/', sValidator('json', OtlpLogsPayloadSchema), async (c) => {
 
   const skillRows: InsertSkillEvent[] = [];
   const pluginEventRows: InsertPluginEvent[] = [];
+  const apiRequestRows: InsertApiRequest[] = [];
 
   for (const resourceLog of payload.resourceLogs ?? []) {
     for (const scopeLog of resourceLog.scopeLogs ?? []) {
@@ -34,6 +39,7 @@ logsRoute.post('/', sValidator('json', OtlpLogsPayloadSchema), async (c) => {
         const timestamp = nanoToIso(record.timeUnixNano);
         const userEmail = extractAttrString(attrs, ATTR.USER_EMAIL);
         const sessionId = extractAttrString(attrs, ATTR.SESSION_ID);
+        const appVersion = extractAttrString(attrs, ATTR.APP_VERSION);
         const raw = JSON.stringify(record);
 
         if (eventName === EVENT.SKILL_ACTIVATED) {
@@ -58,6 +64,7 @@ logsRoute.post('/', sValidator('json', OtlpLogsPayloadSchema), async (c) => {
             ),
             skillSource: extractAttrString(attrs, ATTR.SKILL_SOURCE),
             pluginId,
+            appVersion,
             raw,
           });
           continue;
@@ -83,6 +90,28 @@ logsRoute.post('/', sValidator('json', OtlpLogsPayloadSchema), async (c) => {
             userEmail,
             sessionId,
             pluginId,
+            appVersion,
+            raw,
+          });
+          continue;
+        }
+
+        if (eventName === EVENT.API_REQUEST) {
+          apiRequestRows.push({
+            timestamp,
+            userEmail,
+            sessionId,
+            model: extractAttrString(attrs, ATTR.MODEL),
+            costUsd: extractAttrDouble(attrs, ATTR.COST_USD),
+            durationMs: extractAttrInt(attrs, ATTR.DURATION_MS),
+            inputTokens: extractAttrInt(attrs, ATTR.INPUT_TOKENS),
+            outputTokens: extractAttrInt(attrs, ATTR.OUTPUT_TOKENS),
+            cacheReadTokens: extractAttrInt(attrs, ATTR.CACHE_READ_TOKENS),
+            cacheCreationTokens: extractAttrInt(
+              attrs,
+              ATTR.CACHE_CREATION_TOKENS,
+            ),
+            appVersion,
             raw,
           });
         }
@@ -95,6 +124,9 @@ logsRoute.post('/', sValidator('json', OtlpLogsPayloadSchema), async (c) => {
   }
   if (pluginEventRows.length > 0) {
     await db.insert(pluginEvents).values(pluginEventRows);
+  }
+  if (apiRequestRows.length > 0) {
+    await db.insert(apiRequests).values(apiRequestRows);
   }
 
   return c.json({ partialSuccess: {} });
