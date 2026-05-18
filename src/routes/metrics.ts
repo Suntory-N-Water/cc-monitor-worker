@@ -1,10 +1,18 @@
 import { sValidator } from '@hono/standard-validator';
 import { drizzle } from 'drizzle-orm/d1';
 import { Hono } from 'hono';
-import { costUsage, sessionCounts, tokenUsage } from '../db/schema';
-import { upsertPlugin } from '../lib/plugin';
+import {
+  type InsertCostUsage,
+  type InsertSessionCount,
+  type InsertTokenUsage,
+  costUsage,
+  sessionCounts,
+  tokenUsage,
+} from '../db/schema';
+import { resolvePluginId } from '../lib/plugin';
 import {
   ATTR,
+  METRIC,
   OtlpMetricsPayloadSchema,
   dataPointValue,
   extractAttrString,
@@ -19,6 +27,11 @@ metricsRoute.post(
   async (c) => {
     const payload = c.req.valid('json');
     const db = drizzle(c.env.claude_code_analytics_db);
+    const pluginIdCache = new Map<string, number>();
+
+    const costRows: InsertCostUsage[] = [];
+    const tokenRows: InsertTokenUsage[] = [];
+    const sessionRows: InsertSessionCount[] = [];
 
     for (const resourceMetric of payload.resourceMetrics ?? []) {
       for (const scopeMetric of resourceMetric.scopeMetrics ?? []) {
@@ -32,29 +45,32 @@ metricsRoute.post(
             const timestamp = nanoToIso(point.timeUnixNano);
             const userEmail = extractAttrString(pointAttrs, ATTR.USER_EMAIL);
             const sessionId = extractAttrString(pointAttrs, ATTR.SESSION_ID);
-            const skillName = extractAttrString(pointAttrs, ATTR.SKILL_NAME);
-            const pluginName = extractAttrString(pointAttrs, ATTR.PLUGIN_NAME);
-            const marketplaceName = extractAttrString(
-              pointAttrs,
-              ATTR.MARKETPLACE_NAME,
-            );
             const model = extractAttrString(pointAttrs, ATTR.MODEL);
             const raw = JSON.stringify(point);
 
-            const pluginId = pluginName
-              ? await upsertPlugin(db, pluginName, marketplaceName)
-              : null;
-
-            if (metricName === 'claude_code.cost.usage') {
+            if (metricName === METRIC.COST_USAGE) {
               const { asDouble } = dataPointValue(point);
               if (asDouble !== undefined) {
-                await db.insert(costUsage).values({
+                const pluginName = extractAttrString(
+                  pointAttrs,
+                  ATTR.PLUGIN_NAME,
+                );
+                const pluginId = pluginName
+                  ? await resolvePluginId(db, pluginIdCache, {
+                      name: pluginName,
+                      marketplaceName: extractAttrString(
+                        pointAttrs,
+                        ATTR.MARKETPLACE_NAME,
+                      ),
+                    })
+                  : null;
+                costRows.push({
                   timestamp,
                   userEmail,
                   sessionId,
                   model,
                   costUsd: asDouble,
-                  skillName,
+                  skillName: extractAttrString(pointAttrs, ATTR.SKILL_NAME),
                   pluginId,
                   raw,
                 });
@@ -62,17 +78,30 @@ metricsRoute.post(
               continue;
             }
 
-            if (metricName === 'claude_code.token.usage') {
+            if (metricName === METRIC.TOKEN_USAGE) {
               const { asInt } = dataPointValue(point);
               if (asInt !== undefined) {
-                await db.insert(tokenUsage).values({
+                const pluginName = extractAttrString(
+                  pointAttrs,
+                  ATTR.PLUGIN_NAME,
+                );
+                const pluginId = pluginName
+                  ? await resolvePluginId(db, pluginIdCache, {
+                      name: pluginName,
+                      marketplaceName: extractAttrString(
+                        pointAttrs,
+                        ATTR.MARKETPLACE_NAME,
+                      ),
+                    })
+                  : null;
+                tokenRows.push({
                   timestamp,
                   userEmail,
                   sessionId,
                   model,
                   tokenType: extractAttrString(pointAttrs, ATTR.TYPE),
                   tokenCount: asInt,
-                  skillName,
+                  skillName: extractAttrString(pointAttrs, ATTR.SKILL_NAME),
                   pluginId,
                   raw,
                 });
@@ -80,10 +109,10 @@ metricsRoute.post(
               continue;
             }
 
-            if (metricName === 'claude_code.session.count') {
+            if (metricName === METRIC.SESSION_COUNT) {
               const { asInt } = dataPointValue(point);
               if (asInt !== undefined) {
-                await db.insert(sessionCounts).values({
+                sessionRows.push({
                   timestamp,
                   userEmail,
                   sessionId,
@@ -95,6 +124,16 @@ metricsRoute.post(
           }
         }
       }
+    }
+
+    if (costRows.length > 0) {
+      await db.insert(costUsage).values(costRows);
+    }
+    if (tokenRows.length > 0) {
+      await db.insert(tokenUsage).values(tokenRows);
+    }
+    if (sessionRows.length > 0) {
+      await db.insert(sessionCounts).values(sessionRows);
     }
 
     return c.json({ partialSuccess: {} });

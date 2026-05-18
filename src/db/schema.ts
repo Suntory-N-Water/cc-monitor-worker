@@ -104,3 +104,9 @@ export const sessionCounts = sqliteTable(
     index('session_counts_user_email_idx').on(t.userEmail),
   ],
 );
+
+export type InsertSkillEvent = typeof skillEvents.$inferInsert;
+export type InsertPluginEvent = typeof pluginEvents.$inferInsert;
+export type InsertCostUsage = typeof costUsage.$inferInsert;
+export type InsertTokenUsage = typeof tokenUsage.$inferInsert;
+export type InsertSessionCount = typeof sessionCounts.$inferInsert;

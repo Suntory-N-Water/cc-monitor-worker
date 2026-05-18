@@ -2,7 +2,7 @@ import { eq } from 'drizzle-orm';
 import type { DrizzleD1Database } from 'drizzle-orm/d1';
 import { plugins } from '../db/schema';
 
-export async function upsertPlugin(
+async function upsertPlugin(
   db: DrizzleD1Database,
   pluginName: string,
   marketplaceName?: string,
@@ -22,4 +22,18 @@ export async function upsertPlugin(
     throw new Error(`plugin not found after upsert: ${pluginName}`);
   }
   return row.id;
+}
+
+export async function resolvePluginId(
+  db: DrizzleD1Database,
+  cache: Map<string, number>,
+  plugin: { name: string; marketplaceName: string | undefined },
+): Promise<number> {
+  const cached = cache.get(plugin.name);
+  if (cached !== undefined) {
+    return cached;
+  }
+  const id = await upsertPlugin(db, plugin.name, plugin.marketplaceName);
+  cache.set(plugin.name, id);
+  return id;
 }

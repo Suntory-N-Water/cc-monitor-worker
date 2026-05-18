@@ -68,7 +68,6 @@ export const OtlpMetricsPayloadSchema = v.object({
 export type OtlpAttribute = v.InferOutput<typeof OtlpAttributeSchema>;
 export type OtlpDataPoint = v.InferOutput<typeof OtlpDataPointSchema>;
 
-// typo をコンパイル時に検出するため定数化
 export const ATTR = {
   USER_EMAIL: 'user.email',
   SESSION_ID: 'session.id',
@@ -82,6 +81,18 @@ export const ATTR = {
   TYPE: 'type',
 } as const;
 
+export const EVENT = {
+  SKILL_ACTIVATED: 'skill_activated',
+  PLUGIN_LOADED: 'plugin_loaded',
+  PLUGIN_INSTALLED: 'plugin_installed',
+} as const;
+
+export const METRIC = {
+  COST_USAGE: 'claude_code.cost.usage',
+  TOKEN_USAGE: 'claude_code.token.usage',
+  SESSION_COUNT: 'claude_code.session.count',
+} as const;
+
 type AttrKey = (typeof ATTR)[keyof typeof ATTR];
 
 export function extractAttrString(
@@ -93,21 +104,6 @@ export function extractAttrString(
     return;
   }
   return found.value.stringValue;
-}
-
-export function extractAttrNumber(
-  attrs: OtlpAttribute[] | undefined,
-  key: AttrKey,
-): number | undefined {
-  const found = attrs?.find((a) => a.key === key);
-  if (!found) {
-    return;
-  }
-  // intValue は文字列で送られてくることがある
-  if (found.value.intValue !== undefined) {
-    return Number(found.value.intValue);
-  }
-  return found.value.doubleValue;
 }
 
 export function nanoToIso(timeUnixNano: string | undefined): string {
