@@ -12,12 +12,16 @@ Claude Code の Skill 利用状況を収集する Cloudflare Worker。
 Cloudflare Worker(このリポジトリ)
   ↓ Bearer 認証 → valibot でペイロード検証 → イベント種別で振り分け
 Cloudflare D1(SQLite)
-  ├── plugins        プラグインマスタ
-  ├── skill_events   Skill 起動ログ
-  ├── plugin_events  プラグイン ロード・インストール履歴
-  ├── cost_usage     コストメトリクス(USD)
-  ├── token_usage    トークン消費メトリクス
-  └── session_counts セッション数メトリクス
+  ├── plugins          プラグインマスタ
+  ├── skill_events     Skill 起動ログ
+  ├── plugin_events    プラグイン ロード・インストール履歴
+  ├── api_requests     API リクエストログ
+  ├── tool_results     ツール実行ログ
+  ├── hook_executions  フック実行ログ
+  ├── cost_usage       コストメトリクス(USD)
+  ├── token_usage      トークン消費メトリクス
+  ├── session_counts   セッション数メトリクス
+  └── active_time      アクティブ時間メトリクス
 ```
 
 メンバー側の作業は不要。管理者が claude.ai Admin Settings で managed settings を配布するだけで自動収集が始まる。
@@ -41,6 +45,12 @@ sequenceDiagram
             W->>D1: INSERT skill_events
         else plugin_loaded / plugin_installed
             W->>D1: UPSERT plugins<br/>INSERT plugin_events
+        else api_request
+            W->>D1: INSERT api_requests
+        else tool_result
+            W->>D1: INSERT tool_results
+        else hook_execution_complete
+            W->>D1: INSERT hook_executions
         end
         W-->>CC: 200 { partialSuccess: {} }
 
@@ -53,6 +63,8 @@ sequenceDiagram
             W->>D1: INSERT token_usage
         else claude_code.session.count
             W->>D1: INSERT session_counts
+        else claude_code.active_time.total
+            W->>D1: INSERT active_time
         end
         W-->>CC: 200 { partialSuccess: {} }
     end
@@ -77,6 +89,7 @@ erDiagram
         text invocation_trigger
         text skill_source
         int plugin_id FK
+        text app_version
         text raw
     }
 
@@ -87,6 +100,54 @@ erDiagram
         text user_email
         text session_id
         int plugin_id FK
+        text app_version
+        text raw
+    }
+
+    api_requests {
+        int id PK
+        text timestamp
+        text user_email
+        text session_id
+        text model
+        real cost_usd
+        int duration_ms
+        int input_tokens
+        int output_tokens
+        int cache_read_tokens
+        int cache_creation_tokens
+        text app_version
+        text raw
+    }
+
+    tool_results {
+        int id PK
+        text timestamp
+        text user_email
+        text session_id
+        text tool_name
+        int success
+        int duration_ms
+        text prompt_id
+        text tool_use_id
+        text app_version
+        text raw
+    }
+
+    hook_executions {
+        int id PK
+        text timestamp
+        text user_email
+        text session_id
+        text hook_event
+        text hook_name
+        int num_hooks
+        int num_success
+        int num_blocking
+        int num_non_blocking_error
+        int total_duration_ms
+        text prompt_id
+        text app_version
         text raw
     }
 
@@ -99,6 +160,7 @@ erDiagram
         real cost_usd
         text skill_name
         int plugin_id FK
+        text app_version
         text raw
     }
 
@@ -112,6 +174,7 @@ erDiagram
         int token_count
         text skill_name
         int plugin_id FK
+        text app_version
         text raw
     }
 
@@ -121,6 +184,18 @@ erDiagram
         text user_email
         text session_id
         int count
+        text app_version
+        text raw
+    }
+
+    active_time {
+        int id PK
+        text timestamp
+        text user_email
+        text session_id
+        text type
+        real duration_sec
+        text app_version
         text raw
     }
 
@@ -136,9 +211,13 @@ erDiagram
 |---|---|---|
 | `skill_activated` | `/v1/logs` | `skill_events` |
 | `plugin_loaded` / `plugin_installed` | `/v1/logs` | `plugin_events` |
+| `api_request` | `/v1/logs` | `api_requests` |
+| `tool_result` | `/v1/logs` | `tool_results` |
+| `hook_execution_complete` | `/v1/logs` | `hook_executions` |
 | `claude_code.cost.usage` | `/v1/metrics` | `cost_usage` |
 | `claude_code.token.usage` | `/v1/metrics` | `token_usage` |
 | `claude_code.session.count` | `/v1/metrics` | `session_counts` |
+| `claude_code.active_time.total` | `/v1/metrics` | `active_time` |
 
 ## セットアップ
 
