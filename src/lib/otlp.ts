@@ -118,33 +118,33 @@ export const METRIC = {
 
 type AttrKey = (typeof ATTR)[keyof typeof ATTR];
 
+function findAttrValue(attrs: OtlpAttribute[] | undefined, key: AttrKey) {
+  return attrs?.find((a) => a.key === key)?.value;
+}
+
 export function extractAttrString(
   attrs: OtlpAttribute[] | undefined,
   key: AttrKey,
 ): string | undefined {
-  const found = attrs?.find((a) => a.key === key);
-  if (!found) {
-    return;
-  }
-  return found.value.stringValue;
+  return findAttrValue(attrs, key)?.stringValue;
 }
 
 export function extractAttrDouble(
   attrs: OtlpAttribute[] | undefined,
   key: AttrKey,
 ): number | undefined {
-  const found = attrs?.find((a) => a.key === key);
-  if (!found) {
+  const value = findAttrValue(attrs, key);
+  if (!value) {
     return;
   }
-  if (found.value.doubleValue !== undefined) {
-    return found.value.doubleValue;
+  if (value.doubleValue !== undefined) {
+    return value.doubleValue;
   }
-  if (found.value.intValue !== undefined) {
-    return Number(found.value.intValue);
+  if (value.intValue !== undefined) {
+    return Number(value.intValue);
   }
-  if (found.value.stringValue !== undefined) {
-    const n = Number(found.value.stringValue);
+  if (value.stringValue !== undefined) {
+    const n = Number(value.stringValue);
     return Number.isNaN(n) ? undefined : n;
   }
   return;
@@ -154,15 +154,15 @@ export function extractAttrBool(
   attrs: OtlpAttribute[] | undefined,
   key: AttrKey,
 ): boolean | undefined {
-  const found = attrs?.find((a) => a.key === key);
-  if (!found) {
+  const value = findAttrValue(attrs, key);
+  if (!value) {
     return;
   }
-  if (found.value.boolValue !== undefined) {
-    return found.value.boolValue;
+  if (value.boolValue !== undefined) {
+    return value.boolValue;
   }
-  if (found.value.stringValue !== undefined) {
-    return found.value.stringValue === 'true';
+  if (value.stringValue !== undefined) {
+    return value.stringValue === 'true';
   }
   return;
 }
@@ -171,18 +171,18 @@ export function extractAttrInt(
   attrs: OtlpAttribute[] | undefined,
   key: AttrKey,
 ): number | undefined {
-  const found = attrs?.find((a) => a.key === key);
-  if (!found) {
+  const value = findAttrValue(attrs, key);
+  if (!value) {
     return;
   }
-  if (found.value.intValue !== undefined) {
-    return Number(found.value.intValue);
+  if (value.intValue !== undefined) {
+    return Number(value.intValue);
   }
-  if (found.value.doubleValue !== undefined) {
-    return Math.round(found.value.doubleValue);
+  if (value.doubleValue !== undefined) {
+    return Math.round(value.doubleValue);
   }
-  if (found.value.stringValue !== undefined) {
-    const n = Number(found.value.stringValue);
+  if (value.stringValue !== undefined) {
+    const n = Number(value.stringValue);
     return Number.isNaN(n) ? undefined : Math.round(n);
   }
   return;
@@ -199,13 +199,14 @@ export function dataPointValue(point: OtlpDataPoint): {
   asDouble?: number;
   asInt?: number;
 } {
-  const result: { asDouble?: number; asInt?: number } = {};
-  if (point.asDouble !== undefined) {
-    result.asDouble = point.asDouble;
-  }
-  // asInt は文字列で送られてくることがある
-  if (point.asInt !== undefined) {
-    result.asInt = Number(point.asInt);
-  }
-  return result;
+  return {
+    ...(point.asDouble !== undefined && { asDouble: point.asDouble }),
+    // asInt は文字列で送られてくることがある
+    ...(point.asInt !== undefined && { asInt: Number(point.asInt) }),
+  };
+}
+
+export function dataPointInt(point: OtlpDataPoint): number | undefined {
+  const { asInt, asDouble } = dataPointValue(point);
+  return asInt ?? (asDouble !== undefined ? Math.round(asDouble) : undefined);
 }

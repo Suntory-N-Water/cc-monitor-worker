@@ -13,7 +13,7 @@ import {
   skillEvents,
   toolResults,
 } from '../db/schema';
-import { resolvePluginId } from '../lib/plugin';
+import { resolvePluginIdFromAttrs } from '../lib/plugin';
 import {
   ATTR,
   EVENT,
@@ -53,16 +53,11 @@ logsRoute.post('/', sValidator('json', OtlpLogsPayloadSchema), async (c) => {
         const raw = JSON.stringify(record);
 
         if (eventName === EVENT.SKILL_ACTIVATED) {
-          const pluginName = extractAttrString(attrs, ATTR.PLUGIN_NAME);
-          const pluginId = pluginName
-            ? await resolvePluginId(db, pluginIdCache, {
-                name: pluginName,
-                marketplaceName: extractAttrString(
-                  attrs,
-                  ATTR.MARKETPLACE_NAME,
-                ),
-              })
-            : null;
+          const pluginId = await resolvePluginIdFromAttrs(
+            db,
+            pluginIdCache,
+            attrs,
+          );
           skillRows.push({
             timestamp,
             userEmail,
@@ -84,16 +79,11 @@ logsRoute.post('/', sValidator('json', OtlpLogsPayloadSchema), async (c) => {
           eventName === EVENT.PLUGIN_LOADED ||
           eventName === EVENT.PLUGIN_INSTALLED
         ) {
-          const pluginName = extractAttrString(attrs, ATTR.PLUGIN_NAME);
-          const pluginId = pluginName
-            ? await resolvePluginId(db, pluginIdCache, {
-                name: pluginName,
-                marketplaceName: extractAttrString(
-                  attrs,
-                  ATTR.MARKETPLACE_NAME,
-                ),
-              })
-            : null;
+          const pluginId = await resolvePluginIdFromAttrs(
+            db,
+            pluginIdCache,
+            attrs,
+          );
           pluginEventRows.push({
             timestamp,
             eventName,

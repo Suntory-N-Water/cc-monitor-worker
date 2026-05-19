@@ -11,11 +11,12 @@ import {
   sessionCounts,
   tokenUsage,
 } from '../db/schema';
-import { resolvePluginId } from '../lib/plugin';
+import { resolvePluginIdFromAttrs } from '../lib/plugin';
 import {
   ATTR,
   METRIC,
   OtlpMetricsPayloadSchema,
+  dataPointInt,
   dataPointValue,
   extractAttrString,
   nanoToIso,
@@ -58,19 +59,11 @@ metricsRoute.post(
             if (metricName === METRIC.COST_USAGE) {
               const { asDouble } = dataPointValue(point);
               if (asDouble !== undefined) {
-                const pluginName = extractAttrString(
+                const pluginId = await resolvePluginIdFromAttrs(
+                  db,
+                  pluginIdCache,
                   pointAttrs,
-                  ATTR.PLUGIN_NAME,
                 );
-                const pluginId = pluginName
-                  ? await resolvePluginId(db, pluginIdCache, {
-                      name: pluginName,
-                      marketplaceName: extractAttrString(
-                        pointAttrs,
-                        ATTR.MARKETPLACE_NAME,
-                      ),
-                    })
-                  : null;
                 costRows.push({
                   timestamp,
                   userEmail,
@@ -87,24 +80,13 @@ metricsRoute.post(
             }
 
             if (metricName === METRIC.TOKEN_USAGE) {
-              const { asInt, asDouble } = dataPointValue(point);
-              const tokenCount =
-                asInt ??
-                (asDouble !== undefined ? Math.round(asDouble) : undefined);
+              const tokenCount = dataPointInt(point);
               if (tokenCount !== undefined) {
-                const pluginName = extractAttrString(
+                const pluginId = await resolvePluginIdFromAttrs(
+                  db,
+                  pluginIdCache,
                   pointAttrs,
-                  ATTR.PLUGIN_NAME,
                 );
-                const pluginId = pluginName
-                  ? await resolvePluginId(db, pluginIdCache, {
-                      name: pluginName,
-                      marketplaceName: extractAttrString(
-                        pointAttrs,
-                        ATTR.MARKETPLACE_NAME,
-                      ),
-                    })
-                  : null;
                 tokenRows.push({
                   timestamp,
                   userEmail,
@@ -122,10 +104,7 @@ metricsRoute.post(
             }
 
             if (metricName === METRIC.SESSION_COUNT) {
-              const { asInt, asDouble } = dataPointValue(point);
-              const count =
-                asInt ??
-                (asDouble !== undefined ? Math.round(asDouble) : undefined);
+              const count = dataPointInt(point);
               if (count !== undefined) {
                 sessionRows.push({
                   timestamp,

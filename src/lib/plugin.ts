@@ -1,6 +1,7 @@
 import { eq } from 'drizzle-orm';
 import type { DrizzleD1Database } from 'drizzle-orm/d1';
 import { plugins } from '../db/schema';
+import { ATTR, type OtlpAttribute, extractAttrString } from './otlp';
 
 async function upsertPlugin(
   db: DrizzleD1Database,
@@ -24,7 +25,22 @@ async function upsertPlugin(
   return row.id;
 }
 
-export async function resolvePluginId(
+export async function resolvePluginIdFromAttrs(
+  db: DrizzleD1Database,
+  cache: Map<string, number>,
+  attrs: OtlpAttribute[] | undefined,
+): Promise<number | null> {
+  const pluginName = extractAttrString(attrs, ATTR.PLUGIN_NAME);
+  if (!pluginName) {
+    return null;
+  }
+  return resolvePluginId(db, cache, {
+    name: pluginName,
+    marketplaceName: extractAttrString(attrs, ATTR.MARKETPLACE_NAME),
+  });
+}
+
+async function resolvePluginId(
   db: DrizzleD1Database,
   cache: Map<string, number>,
   plugin: { name: string; marketplaceName: string | undefined },
