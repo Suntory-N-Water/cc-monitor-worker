@@ -2,9 +2,11 @@ import { sValidator } from '@hono/standard-validator';
 import { drizzle } from 'drizzle-orm/d1';
 import { Hono } from 'hono';
 import {
+  type InsertActiveTime,
   type InsertCostUsage,
   type InsertSessionCount,
   type InsertTokenUsage,
+  activeTime,
   costUsage,
   sessionCounts,
   tokenUsage,
@@ -32,6 +34,7 @@ metricsRoute.post(
     const costRows: InsertCostUsage[] = [];
     const tokenRows: InsertTokenUsage[] = [];
     const sessionRows: InsertSessionCount[] = [];
+    const activeTimeRows: InsertActiveTime[] = [];
 
     for (const resourceMetric of payload.resourceMetrics ?? []) {
       for (const scopeMetric of resourceMetric.scopeMetrics ?? []) {
@@ -130,21 +133,36 @@ metricsRoute.post(
                   raw,
                 });
               }
+              continue;
+            }
+
+            if (metricName === METRIC.ACTIVE_TIME) {
+              const { asDouble } = dataPointValue(point);
+              activeTimeRows.push({
+                timestamp,
+                userEmail,
+                sessionId,
+                type: extractAttrString(pointAttrs, ATTR.TYPE),
+                durationSec: asDouble,
+                appVersion,
+                raw,
+              });
             }
           }
         }
       }
     }
 
-    if (costRows.length > 0) {
-      await db.insert(costUsage).values(costRows);
-    }
-    if (tokenRows.length > 0) {
-      await db.insert(tokenUsage).values(tokenRows);
-    }
-    if (sessionRows.length > 0) {
-      await db.insert(sessionCounts).values(sessionRows);
-    }
+    await Promise.all([
+      costRows.length > 0 ? db.insert(costUsage).values(costRows) : null,
+      tokenRows.length > 0 ? db.insert(tokenUsage).values(tokenRows) : null,
+      sessionRows.length > 0
+        ? db.insert(sessionCounts).values(sessionRows)
+        : null,
+      activeTimeRows.length > 0
+        ? db.insert(activeTime).values(activeTimeRows)
+        : null,
+    ]);
 
     return c.json({ partialSuccess: {} });
   },

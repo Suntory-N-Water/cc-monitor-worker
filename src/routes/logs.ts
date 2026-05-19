@@ -3,17 +3,22 @@ import { drizzle } from 'drizzle-orm/d1';
 import { Hono } from 'hono';
 import {
   type InsertApiRequest,
+  type InsertHookExecution,
   type InsertPluginEvent,
   type InsertSkillEvent,
+  type InsertToolResult,
   apiRequests,
+  hookExecutions,
   pluginEvents,
   skillEvents,
+  toolResults,
 } from '../db/schema';
 import { resolvePluginId } from '../lib/plugin';
 import {
   ATTR,
   EVENT,
   OtlpLogsPayloadSchema,
+  extractAttrBool,
   extractAttrDouble,
   extractAttrInt,
   extractAttrString,
@@ -30,6 +35,8 @@ logsRoute.post('/', sValidator('json', OtlpLogsPayloadSchema), async (c) => {
   const skillRows: InsertSkillEvent[] = [];
   const pluginEventRows: InsertPluginEvent[] = [];
   const apiRequestRows: InsertApiRequest[] = [];
+  const toolResultRows: InsertToolResult[] = [];
+  const hookExecutionRows: InsertHookExecution[] = [];
 
   for (const resourceLog of payload.resourceLogs ?? []) {
     for (const scopeLog of resourceLog.scopeLogs ?? []) {
@@ -114,20 +121,64 @@ logsRoute.post('/', sValidator('json', OtlpLogsPayloadSchema), async (c) => {
             appVersion,
             raw,
           });
+          continue;
+        }
+
+        if (eventName === EVENT.TOOL_RESULT) {
+          toolResultRows.push({
+            timestamp,
+            userEmail,
+            sessionId,
+            toolName: extractAttrString(attrs, ATTR.TOOL_NAME),
+            success: extractAttrBool(attrs, ATTR.SUCCESS),
+            durationMs: extractAttrInt(attrs, ATTR.DURATION_MS),
+            promptId: extractAttrString(attrs, ATTR.PROMPT_ID),
+            toolUseId: extractAttrString(attrs, ATTR.TOOL_USE_ID),
+            appVersion,
+            raw,
+          });
+          continue;
+        }
+
+        if (eventName === EVENT.HOOK_EXECUTION_COMPLETE) {
+          hookExecutionRows.push({
+            timestamp,
+            userEmail,
+            sessionId,
+            hookEvent: extractAttrString(attrs, ATTR.HOOK_EVENT),
+            hookName: extractAttrString(attrs, ATTR.HOOK_NAME),
+            numHooks: extractAttrInt(attrs, ATTR.NUM_HOOKS),
+            numSuccess: extractAttrInt(attrs, ATTR.NUM_SUCCESS),
+            numBlocking: extractAttrInt(attrs, ATTR.NUM_BLOCKING),
+            numNonBlockingError: extractAttrInt(
+              attrs,
+              ATTR.NUM_NON_BLOCKING_ERROR,
+            ),
+            totalDurationMs: extractAttrInt(attrs, ATTR.TOTAL_DURATION_MS),
+            promptId: extractAttrString(attrs, ATTR.PROMPT_ID),
+            appVersion,
+            raw,
+          });
         }
       }
     }
   }
 
-  if (skillRows.length > 0) {
-    await db.insert(skillEvents).values(skillRows);
-  }
-  if (pluginEventRows.length > 0) {
-    await db.insert(pluginEvents).values(pluginEventRows);
-  }
-  if (apiRequestRows.length > 0) {
-    await db.insert(apiRequests).values(apiRequestRows);
-  }
+  await Promise.all([
+    skillRows.length > 0 ? db.insert(skillEvents).values(skillRows) : null,
+    pluginEventRows.length > 0
+      ? db.insert(pluginEvents).values(pluginEventRows)
+      : null,
+    apiRequestRows.length > 0
+      ? db.insert(apiRequests).values(apiRequestRows)
+      : null,
+    toolResultRows.length > 0
+      ? db.insert(toolResults).values(toolResultRows)
+      : null,
+    hookExecutionRows.length > 0
+      ? db.insert(hookExecutions).values(hookExecutionRows)
+      : null,
+  ]);
 
   return c.json({ partialSuccess: {} });
 });

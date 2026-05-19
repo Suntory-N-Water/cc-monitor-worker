@@ -86,6 +86,17 @@ export const ATTR = {
   OUTPUT_TOKENS: 'output_tokens',
   CACHE_READ_TOKENS: 'cache_read_tokens',
   CACHE_CREATION_TOKENS: 'cache_creation_tokens',
+  TOOL_NAME: 'tool_name',
+  TOOL_USE_ID: 'tool_use_id',
+  SUCCESS: 'success',
+  PROMPT_ID: 'prompt.id',
+  HOOK_EVENT: 'hook_event',
+  HOOK_NAME: 'hook_name',
+  NUM_HOOKS: 'num_hooks',
+  NUM_SUCCESS: 'num_success',
+  NUM_BLOCKING: 'num_blocking',
+  NUM_NON_BLOCKING_ERROR: 'num_non_blocking_error',
+  TOTAL_DURATION_MS: 'total_duration_ms',
 } as const;
 
 export const EVENT = {
@@ -93,12 +104,15 @@ export const EVENT = {
   PLUGIN_LOADED: 'plugin_loaded',
   PLUGIN_INSTALLED: 'plugin_installed',
   API_REQUEST: 'api_request',
+  TOOL_RESULT: 'tool_result',
+  HOOK_EXECUTION_COMPLETE: 'hook_execution_complete',
 } as const;
 
 export const METRIC = {
   COST_USAGE: 'claude_code.cost.usage',
   TOKEN_USAGE: 'claude_code.token.usage',
   SESSION_COUNT: 'claude_code.session.count',
+  ACTIVE_TIME: 'claude_code.active_time.total',
 } as const;
 
 type AttrKey = (typeof ATTR)[keyof typeof ATTR];
@@ -131,6 +145,23 @@ export function extractAttrDouble(
   if (found.value.stringValue !== undefined) {
     const n = Number(found.value.stringValue);
     return Number.isNaN(n) ? undefined : n;
+  }
+  return;
+}
+
+export function extractAttrBool(
+  attrs: OtlpAttribute[] | undefined,
+  key: AttrKey,
+): boolean | undefined {
+  const found = attrs?.find((a) => a.key === key);
+  if (!found) {
+    return;
+  }
+  if (found.value.boolValue !== undefined) {
+    return found.value.boolValue;
+  }
+  if (found.value.stringValue !== undefined) {
+    return found.value.stringValue === 'true';
   }
   return;
 }
