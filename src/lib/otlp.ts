@@ -80,6 +80,7 @@ export const ATTR = {
   MODEL: 'model',
   TYPE: 'type',
   APP_VERSION: 'app.version',
+  SERVICE_VERSION: 'service.version',
   COST_USD: 'cost_usd',
   DURATION_MS: 'duration_ms',
   INPUT_TOKENS: 'input_tokens',

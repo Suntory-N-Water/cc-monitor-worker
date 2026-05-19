@@ -39,6 +39,10 @@ logsRoute.post('/', sValidator('json', OtlpLogsPayloadSchema), async (c) => {
   const hookExecutionRows: InsertHookExecution[] = [];
 
   for (const resourceLog of payload.resourceLogs ?? []) {
+    const appVersion = extractAttrString(
+      resourceLog.resource?.attributes,
+      ATTR.SERVICE_VERSION,
+    );
     for (const scopeLog of resourceLog.scopeLogs ?? []) {
       for (const record of scopeLog.logRecords ?? []) {
         const attrs = record.attributes;
@@ -46,7 +50,6 @@ logsRoute.post('/', sValidator('json', OtlpLogsPayloadSchema), async (c) => {
         const timestamp = nanoToIso(record.timeUnixNano);
         const userEmail = extractAttrString(attrs, ATTR.USER_EMAIL);
         const sessionId = extractAttrString(attrs, ATTR.SESSION_ID);
-        const appVersion = extractAttrString(attrs, ATTR.APP_VERSION);
         const raw = JSON.stringify(record);
 
         if (eventName === EVENT.SKILL_ACTIVATED) {

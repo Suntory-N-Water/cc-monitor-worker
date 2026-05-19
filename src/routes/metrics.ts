@@ -37,6 +37,10 @@ metricsRoute.post(
     const activeTimeRows: InsertActiveTime[] = [];
 
     for (const resourceMetric of payload.resourceMetrics ?? []) {
+      const appVersion = extractAttrString(
+        resourceMetric.resource?.attributes,
+        ATTR.SERVICE_VERSION,
+      );
       for (const scopeMetric of resourceMetric.scopeMetrics ?? []) {
         for (const metric of scopeMetric.metrics ?? []) {
           const metricName = metric.name ?? '';
@@ -49,7 +53,6 @@ metricsRoute.post(
             const userEmail = extractAttrString(pointAttrs, ATTR.USER_EMAIL);
             const sessionId = extractAttrString(pointAttrs, ATTR.SESSION_ID);
             const model = extractAttrString(pointAttrs, ATTR.MODEL);
-            const appVersion = extractAttrString(pointAttrs, ATTR.APP_VERSION);
             const raw = JSON.stringify(point);
 
             if (metricName === METRIC.COST_USAGE) {
