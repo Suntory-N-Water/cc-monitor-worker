@@ -15,20 +15,6 @@ v1.use('*', async (c, next) => {
   return next();
 });
 
-v1.use('*', async (c, next) => {
-  const body = await c.req.raw
-    .clone()
-    .json()
-    .catch(() => null);
-  if (body) {
-    console.log(
-      `[${c.req.path}] payload:`,
-      JSON.stringify(body).slice(0, 2000),
-    );
-  }
-  return next();
-});
-
 v1.route('/logs', logsRoute);
 v1.route('/metrics', metricsRoute);
 
