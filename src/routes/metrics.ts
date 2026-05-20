@@ -11,6 +11,7 @@ import {
   sessionCounts,
   tokenUsage,
 } from '../db/schema';
+import { chunk } from '../lib/array';
 import { resolvePluginIdFromAttrs } from '../lib/plugin';
 import {
   ATTR,
@@ -135,15 +136,16 @@ metricsRoute.post(
       }
     }
 
+    // D1 の bound parameters 上限(100)を考慮して 10 行ずつ分割
     await Promise.all([
-      costRows.length > 0 ? db.insert(costUsage).values(costRows) : null,
-      tokenRows.length > 0 ? db.insert(tokenUsage).values(tokenRows) : null,
-      sessionRows.length > 0
-        ? db.insert(sessionCounts).values(sessionRows)
-        : null,
-      activeTimeRows.length > 0
-        ? db.insert(activeTime).values(activeTimeRows)
-        : null,
+      ...chunk(costRows, 10).map((rows) => db.insert(costUsage).values(rows)),
+      ...chunk(tokenRows, 10).map((rows) => db.insert(tokenUsage).values(rows)),
+      ...chunk(sessionRows, 10).map((rows) =>
+        db.insert(sessionCounts).values(rows),
+      ),
+      ...chunk(activeTimeRows, 10).map((rows) =>
+        db.insert(activeTime).values(rows),
+      ),
     ]);
 
     return c.json({ partialSuccess: {} });
