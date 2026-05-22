@@ -1,0 +1,57 @@
+services:
+  devcontainer:
+    container_name: ${BASENAME}-devcontainer
+    build:
+      context: ./
+      dockerfile: Dockerfile
+    command: sleep infinity
+    ports:
+      - "8976:8976"
+    volumes:
+      - type: bind
+        source: ../
+        target: /workspaces/${BASENAME}
+        consistency: cached
+      - type: volume
+        source: aqua-pkgs
+        target: /home/node/.local/share/aquaproj-aqua/pkgs
+        consistency: cached
+      - type: volume
+        source: pnpm-global-store
+        target: /home/node/.local/share/pnpm/store
+        consistency: cached
+      - type: volume
+        source: bun-install-cache
+        target: /home/node/.bun/install/cache
+        consistency: cached
+      - type: volume
+        source: claude-binary
+        target: /home/node/.local/share/claude
+        consistency: cached
+      - type: bind
+        source: ${HOME}/.claude
+        target: /home/node/.claude
+      - type: bind
+        source: ${HOME}/.claude.json
+        target: /home/node/.claude.json
+      - type: volume
+        source: gh-config
+        target: /home/node/.config/gh
+        consistency: cached
+
+volumes:
+  aqua-pkgs:
+    external: true
+    name: devcontainer-aqua-pkgs
+  pnpm-global-store:
+    external: true
+    name: devcontainer-pnpm-global-store
+  bun-install-cache:
+    external: true
+    name: devcontainer-bun-install-cache
+  claude-binary:
+    external: true
+    name: devcontainer-claude-binary
+  gh-config:
+    external: true
+    name: devcontainer-gh-config

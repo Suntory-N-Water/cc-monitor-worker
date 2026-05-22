@@ -1,0 +1,9 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/aquaproj/aqua/main/json-schema/aqua-yaml.json
+registries:
+  - type: standard
+    ref: v4.514.0
+
+packages:
+  - name: nodejs/node@v24.16.0
+  - name: pnpm/pnpm@v10.33.4
+  - name: oven-sh/bun@bun-v1.3.14
