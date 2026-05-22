@@ -31,6 +31,7 @@
     "@types/bun": "^1.3.14",
     "@types/node": "^25.7.0",
     "drizzle-kit": "^0.31.10",
+    "typescript": "^6.0.3",
     "wrangler": "^4.90.1"
   }
 }
