@@ -4,10 +4,12 @@ import { Hono } from 'hono';
 import {
   type InsertActiveTime,
   type InsertCostUsage,
+  type InsertRawMetric,
   type InsertSessionCount,
   type InsertTokenUsage,
   activeTime,
   costUsage,
+  rawMetrics,
   sessionCounts,
   tokenUsage,
 } from '../db/schema';
@@ -33,6 +35,7 @@ metricsRoute.post(
     const db = drizzle(c.env.claude_code_analytics_db);
     const pluginIdCache = new Map<string, number>();
 
+    const rawMetricRows: InsertRawMetric[] = [];
     const costRows: InsertCostUsage[] = [];
     const tokenRows: InsertTokenUsage[] = [];
     const sessionRows: InsertSessionCount[] = [];
@@ -55,7 +58,12 @@ metricsRoute.post(
             const userEmail = extractAttrString(pointAttrs, ATTR.USER_EMAIL);
             const sessionId = extractAttrString(pointAttrs, ATTR.SESSION_ID);
             const model = extractAttrString(pointAttrs, ATTR.MODEL);
-            const raw = JSON.stringify(point);
+
+            rawMetricRows.push({
+              timestamp,
+              metricName,
+              raw: JSON.stringify(point),
+            });
 
             if (metricName === METRIC.COST_USAGE) {
               const { asDouble } = dataPointValue(point);
@@ -74,7 +82,6 @@ metricsRoute.post(
                   skillName: extractAttrString(pointAttrs, ATTR.SKILL_NAME),
                   pluginId,
                   appVersion,
-                  raw,
                 });
               }
               continue;
@@ -98,7 +105,6 @@ metricsRoute.post(
                   skillName: extractAttrString(pointAttrs, ATTR.SKILL_NAME),
                   pluginId,
                   appVersion,
-                  raw,
                 });
               }
               continue;
@@ -113,7 +119,6 @@ metricsRoute.post(
                   sessionId,
                   count,
                   appVersion,
-                  raw,
                 });
               }
               continue;
@@ -128,7 +133,6 @@ metricsRoute.post(
                 type: extractAttrString(pointAttrs, ATTR.TYPE),
                 durationSec: asDouble,
                 appVersion,
-                raw,
               });
             }
           }
@@ -138,6 +142,9 @@ metricsRoute.post(
 
     // D1 の bound parameters 上限(100)を考慮して 10 行ずつ分割
     await Promise.all([
+      ...chunk(rawMetricRows, 10).map((rows) =>
+        db.insert(rawMetrics).values(rows),
+      ),
       ...chunk(costRows, 10).map((rows) => db.insert(costUsage).values(rows)),
       ...chunk(tokenRows, 10).map((rows) => db.insert(tokenUsage).values(rows)),
       ...chunk(sessionRows, 10).map((rows) =>

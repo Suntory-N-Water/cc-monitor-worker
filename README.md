@@ -12,6 +12,8 @@ Claude Code の Skill 利用状況を収集する Cloudflare Worker。
 Cloudflare Worker(このリポジトリ)
   ↓ Bearer 認証 → valibot でペイロード検証 → イベント種別で振り分け
 Cloudflare D1(SQLite)
+  ├── raw_logs         全ログレコード(7日間保持)
+  ├── raw_metrics      全メトリクス dataPoint(7日間保持)
   ├── plugins          プラグインマスタ
   ├── skill_events     Skill 起動ログ
   ├── plugin_events    プラグイン ロード・インストール履歴
@@ -41,6 +43,7 @@ sequenceDiagram
         CC->>W: POST /v1/logs<br/>Authorization: Bearer <token><br/>(OTLP http/json)
         W->>W: Bearer 認証
         W->>W: valibot でペイロード検証
+        W->>D1: INSERT raw_logs(全レコード)
         alt skill_activated
             W->>D1: INSERT skill_events
         else plugin_loaded / plugin_installed
@@ -57,6 +60,7 @@ sequenceDiagram
         CC->>W: POST /v1/metrics<br/>Authorization: Bearer <token><br/>(OTLP http/json)
         W->>W: Bearer 認証
         W->>W: valibot でペイロード検証
+        W->>D1: INSERT raw_metrics(全 dataPoint)
         alt claude_code.cost.usage
             W->>D1: INSERT cost_usage
         else claude_code.token.usage
@@ -74,6 +78,20 @@ sequenceDiagram
 
 ```mermaid
 erDiagram
+    raw_logs {
+        int id PK
+        text timestamp
+        text event_name
+        text raw
+    }
+
+    raw_metrics {
+        int id PK
+        text timestamp
+        text metric_name
+        text raw
+    }
+
     plugins {
         int id PK
         text plugin_name UK
@@ -90,7 +108,6 @@ erDiagram
         text skill_source
         int plugin_id FK
         text app_version
-        text raw
     }
 
     plugin_events {
@@ -101,7 +118,6 @@ erDiagram
         text session_id
         int plugin_id FK
         text app_version
-        text raw
     }
 
     api_requests {
@@ -117,7 +133,6 @@ erDiagram
         int cache_read_tokens
         int cache_creation_tokens
         text app_version
-        text raw
     }
 
     tool_results {
@@ -131,7 +146,6 @@ erDiagram
         text prompt_id
         text tool_use_id
         text app_version
-        text raw
     }
 
     hook_executions {
@@ -148,7 +162,6 @@ erDiagram
         int total_duration_ms
         text prompt_id
         text app_version
-        text raw
     }
 
     cost_usage {
@@ -161,7 +174,6 @@ erDiagram
         text skill_name
         int plugin_id FK
         text app_version
-        text raw
     }
 
     token_usage {
@@ -175,7 +187,6 @@ erDiagram
         text skill_name
         int plugin_id FK
         text app_version
-        text raw
     }
 
     session_counts {
@@ -185,7 +196,6 @@ erDiagram
         text session_id
         int count
         text app_version
-        text raw
     }
 
     active_time {
@@ -196,7 +206,6 @@ erDiagram
         text type
         real duration_sec
         text app_version
-        text raw
     }
 
     plugins ||--o{ skill_events : "plugin_id"
@@ -207,13 +216,17 @@ erDiagram
 
 ## 収集するデータ
 
-| イベント | エンドポイント | 格納先 |
+全ログレコードは `raw_logs`、全メトリクス dataPoint は `raw_metrics` に保存される(保持期間7日)。既知のイベント・メトリクスは下記の構造化テーブルにも同時に挿入される。
+
+| イベント / メトリクス | エンドポイント | 構造化テーブル |
 |---|---|---|
+| 全レコード | `/v1/logs` | `raw_logs`(7日) |
 | `skill_activated` | `/v1/logs` | `skill_events` |
 | `plugin_loaded` / `plugin_installed` | `/v1/logs` | `plugin_events` |
 | `api_request` | `/v1/logs` | `api_requests` |
 | `tool_result` | `/v1/logs` | `tool_results` |
 | `hook_execution_complete` | `/v1/logs` | `hook_executions` |
+| 全 dataPoint | `/v1/metrics` | `raw_metrics`(7日) |
 | `claude_code.cost.usage` | `/v1/metrics` | `cost_usage` |
 | `claude_code.token.usage` | `/v1/metrics` | `token_usage` |
 | `claude_code.session.count` | `/v1/metrics` | `session_counts` |
@@ -265,7 +278,7 @@ bun run deploy
 
 ### Teams / Enterprise: managed settings(推奨)
 
-claude.ai の Admin Settings > Claude Code > Managed settings に投入する JSON。  
+claude.ai の Admin Settings > Claude Code > Managed settings に投入する JSON。
 メンバーの Claude Code が起動時・1時間ごとに自動受信するため、個別連絡は不要。
 
 ```json
@@ -307,6 +320,7 @@ claude.ai の Admin Settings > Claude Code > Managed settings に投入する JS
 | コマンド | 内容 |
 |---|---|
 | `bun run dev` | ローカルサーバー起動 |
+| `bun run dev --test-scheduled` | Cron ハンドラーのローカルテスト有効化 |
 | `bun run ai-check` | format + lint + 型チェック |
 | `bun run db:generate` | スキーマ変更からマイグレーション生成 |
 | `bun run db:migrate:local` | ローカル D1 にマイグレーション適用 |

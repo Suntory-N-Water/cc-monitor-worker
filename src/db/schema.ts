@@ -12,6 +12,34 @@ export const plugins = sqliteTable('plugins', {
   marketplaceName: text('marketplace_name'),
 });
 
+export const rawLogs = sqliteTable(
+  'raw_logs',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    timestamp: text('timestamp').notNull(),
+    eventName: text('event_name'),
+    raw: text('raw').notNull(),
+  },
+  (t) => [
+    index('raw_logs_timestamp_idx').on(t.timestamp),
+    index('raw_logs_event_name_idx').on(t.eventName),
+  ],
+);
+
+export const rawMetrics = sqliteTable(
+  'raw_metrics',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    timestamp: text('timestamp').notNull(),
+    metricName: text('metric_name'),
+    raw: text('raw').notNull(),
+  },
+  (t) => [
+    index('raw_metrics_timestamp_idx').on(t.timestamp),
+    index('raw_metrics_metric_name_idx').on(t.metricName),
+  ],
+);
+
 export const skillEvents = sqliteTable(
   'skill_events',
   {
@@ -24,7 +52,6 @@ export const skillEvents = sqliteTable(
     skillSource: text('skill_source'),
     pluginId: integer('plugin_id').references(() => plugins.id),
     appVersion: text('app_version'),
-    raw: text('raw'),
   },
   (t) => [
     index('skill_events_timestamp_idx').on(t.timestamp),
@@ -44,7 +71,6 @@ export const pluginEvents = sqliteTable(
     sessionId: text('session_id'),
     pluginId: integer('plugin_id').references(() => plugins.id),
     appVersion: text('app_version'),
-    raw: text('raw'),
   },
   (t) => [
     index('plugin_events_timestamp_idx').on(t.timestamp),
@@ -64,7 +90,6 @@ export const costUsage = sqliteTable(
     skillName: text('skill_name'),
     pluginId: integer('plugin_id').references(() => plugins.id),
     appVersion: text('app_version'),
-    raw: text('raw'),
   },
   (t) => [
     index('cost_usage_timestamp_idx').on(t.timestamp),
@@ -85,7 +110,6 @@ export const tokenUsage = sqliteTable(
     skillName: text('skill_name'),
     pluginId: integer('plugin_id').references(() => plugins.id),
     appVersion: text('app_version'),
-    raw: text('raw'),
   },
   (t) => [
     index('token_usage_timestamp_idx').on(t.timestamp),
@@ -102,7 +126,6 @@ export const sessionCounts = sqliteTable(
     sessionId: text('session_id'),
     count: integer('count').notNull(),
     appVersion: text('app_version'),
-    raw: text('raw'),
   },
   (t) => [
     index('session_counts_timestamp_idx').on(t.timestamp),
@@ -125,7 +148,6 @@ export const apiRequests = sqliteTable(
     cacheReadTokens: integer('cache_read_tokens'),
     cacheCreationTokens: integer('cache_creation_tokens'),
     appVersion: text('app_version'),
-    raw: text('raw'),
   },
   (t) => [
     index('api_requests_timestamp_idx').on(t.timestamp),
@@ -147,7 +169,6 @@ export const toolResults = sqliteTable(
     promptId: text('prompt_id'),
     toolUseId: text('tool_use_id'),
     appVersion: text('app_version'),
-    raw: text('raw'),
   },
   (t) => [
     index('tool_results_timestamp_idx').on(t.timestamp),
@@ -173,7 +194,6 @@ export const hookExecutions = sqliteTable(
     totalDurationMs: integer('total_duration_ms'),
     promptId: text('prompt_id'),
     appVersion: text('app_version'),
-    raw: text('raw'),
   },
   (t) => [
     index('hook_executions_timestamp_idx').on(t.timestamp),
@@ -192,7 +212,6 @@ export const activeTime = sqliteTable(
     type: text('type'),
     durationSec: real('duration_sec'),
     appVersion: text('app_version'),
-    raw: text('raw'),
   },
   (t) => [
     index('active_time_timestamp_idx').on(t.timestamp),
@@ -201,6 +220,8 @@ export const activeTime = sqliteTable(
   ],
 );
 
+export type InsertRawLog = typeof rawLogs.$inferInsert;
+export type InsertRawMetric = typeof rawMetrics.$inferInsert;
 export type InsertSkillEvent = typeof skillEvents.$inferInsert;
 export type InsertPluginEvent = typeof pluginEvents.$inferInsert;
 export type InsertCostUsage = typeof costUsage.$inferInsert;

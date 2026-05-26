@@ -10,6 +10,9 @@
   "observability": {
     "enabled": true
   },
+  "triggers": {
+    "crons": ["0 0 * * *"]
+  },
   "d1_databases": [
     {
       "binding": "claude_code_analytics_db",

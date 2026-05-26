@@ -5,11 +5,13 @@ import {
   type InsertApiRequest,
   type InsertHookExecution,
   type InsertPluginEvent,
+  type InsertRawLog,
   type InsertSkillEvent,
   type InsertToolResult,
   apiRequests,
   hookExecutions,
   pluginEvents,
+  rawLogs,
   skillEvents,
   toolResults,
 } from '../db/schema';
@@ -32,6 +34,7 @@ logsRoute.post('/', sValidator('json', OtlpLogsPayloadSchema), async (c) => {
   const db = drizzle(c.env.claude_code_analytics_db);
   const pluginIdCache = new Map<string, number>();
 
+  const rawLogRows: InsertRawLog[] = [];
   const skillRows: InsertSkillEvent[] = [];
   const pluginEventRows: InsertPluginEvent[] = [];
   const apiRequestRows: InsertApiRequest[] = [];
@@ -50,7 +53,12 @@ logsRoute.post('/', sValidator('json', OtlpLogsPayloadSchema), async (c) => {
         const timestamp = nanoToIso(record.timeUnixNano);
         const userEmail = extractAttrString(attrs, ATTR.USER_EMAIL);
         const sessionId = extractAttrString(attrs, ATTR.SESSION_ID);
-        const raw = JSON.stringify(record);
+
+        rawLogRows.push({
+          timestamp,
+          eventName,
+          raw: JSON.stringify(record),
+        });
 
         if (eventName === EVENT.SKILL_ACTIVATED) {
           const pluginId = await resolvePluginIdFromAttrs(
@@ -70,7 +78,6 @@ logsRoute.post('/', sValidator('json', OtlpLogsPayloadSchema), async (c) => {
             skillSource: extractAttrString(attrs, ATTR.SKILL_SOURCE),
             pluginId,
             appVersion,
-            raw,
           });
           continue;
         }
@@ -91,7 +98,6 @@ logsRoute.post('/', sValidator('json', OtlpLogsPayloadSchema), async (c) => {
             sessionId,
             pluginId,
             appVersion,
-            raw,
           });
           continue;
         }
@@ -112,7 +118,6 @@ logsRoute.post('/', sValidator('json', OtlpLogsPayloadSchema), async (c) => {
               ATTR.CACHE_CREATION_TOKENS,
             ),
             appVersion,
-            raw,
           });
           continue;
         }
@@ -128,7 +133,6 @@ logsRoute.post('/', sValidator('json', OtlpLogsPayloadSchema), async (c) => {
             promptId: extractAttrString(attrs, ATTR.PROMPT_ID),
             toolUseId: extractAttrString(attrs, ATTR.TOOL_USE_ID),
             appVersion,
-            raw,
           });
           continue;
         }
@@ -150,7 +154,6 @@ logsRoute.post('/', sValidator('json', OtlpLogsPayloadSchema), async (c) => {
             totalDurationMs: extractAttrInt(attrs, ATTR.TOTAL_DURATION_MS),
             promptId: extractAttrString(attrs, ATTR.PROMPT_ID),
             appVersion,
-            raw,
           });
         }
       }
@@ -158,6 +161,7 @@ logsRoute.post('/', sValidator('json', OtlpLogsPayloadSchema), async (c) => {
   }
 
   await Promise.all([
+    rawLogRows.length > 0 ? db.insert(rawLogs).values(rawLogRows) : null,
     skillRows.length > 0 ? db.insert(skillEvents).values(skillRows) : null,
     pluginEventRows.length > 0
       ? db.insert(pluginEvents).values(pluginEventRows)
