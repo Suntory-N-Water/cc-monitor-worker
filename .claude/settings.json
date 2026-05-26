@@ -55,7 +55,9 @@
       "Bash(.dev.vars)",
       "Write(.env*)",
       "Write(.dev.vars)",
-      "NotebookEdit"
+      "NotebookEdit",
+      "Bash(bunx wrangler d1 migrations apply*--remote*)",
+      "Bash(bun run db:migrate:remote*)"
     ],
     "ask": [
       "Bash(git push:*)",
@@ -63,11 +65,20 @@
       "Bash(git commit:*)",
       "Bash(git checkout:*)",
       "Bash(git switch:*)",
-      "Bash(rm:*)",
-      "Bash(curl:*)"
+      "Bash(rm:*)"
     ]
   },
   "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bun run --silent -i ~/.claude/scripts/typescript/question.ts"
+          }
+        ]
+      }
+    ],
     "Stop": [
       {
         "hooks": [
