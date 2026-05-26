@@ -7,12 +7,14 @@ import {
   type InsertPluginEvent,
   type InsertRawLog,
   type InsertSkillEvent,
+  type InsertToolDecision,
   type InsertToolResult,
   apiRequests,
   hookExecutions,
   pluginEvents,
   rawLogs,
   skillEvents,
+  toolDecisions,
   toolResults,
 } from '../db/schema';
 import { resolvePluginIdFromAttrs } from '../lib/plugin';
@@ -36,6 +38,7 @@ logsRoute.post('/', sValidator('json', OtlpLogsPayloadSchema), async (c) => {
 
   const rawLogRows: InsertRawLog[] = [];
   const skillRows: InsertSkillEvent[] = [];
+  const toolDecisionRows: InsertToolDecision[] = [];
   const pluginEventRows: InsertPluginEvent[] = [];
   const apiRequestRows: InsertApiRequest[] = [];
   const toolResultRows: InsertToolResult[] = [];
@@ -155,6 +158,21 @@ logsRoute.post('/', sValidator('json', OtlpLogsPayloadSchema), async (c) => {
             promptId: extractAttrString(attrs, ATTR.PROMPT_ID),
             appVersion,
           });
+          continue;
+        }
+
+        if (eventName === EVENT.TOOL_DECISION) {
+          toolDecisionRows.push({
+            timestamp,
+            userEmail,
+            sessionId,
+            toolName: extractAttrString(attrs, ATTR.TOOL_NAME),
+            decision: extractAttrString(attrs, ATTR.DECISION),
+            source: extractAttrString(attrs, ATTR.SOURCE),
+            promptId: extractAttrString(attrs, ATTR.PROMPT_ID),
+            toolUseId: extractAttrString(attrs, ATTR.TOOL_USE_ID),
+            appVersion,
+          });
         }
       }
     }
@@ -174,6 +192,9 @@ logsRoute.post('/', sValidator('json', OtlpLogsPayloadSchema), async (c) => {
       : null,
     hookExecutionRows.length > 0
       ? db.insert(hookExecutions).values(hookExecutionRows)
+      : null,
+    toolDecisionRows.length > 0
+      ? db.insert(toolDecisions).values(toolDecisionRows)
       : null,
   ]);
 

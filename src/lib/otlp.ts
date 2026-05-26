@@ -98,6 +98,8 @@ export const ATTR = {
   NUM_BLOCKING: 'num_blocking',
   NUM_NON_BLOCKING_ERROR: 'num_non_blocking_error',
   TOTAL_DURATION_MS: 'total_duration_ms',
+  DECISION: 'decision',
+  SOURCE: 'source',
 } as const;
 
 export const EVENT = {
@@ -107,6 +109,7 @@ export const EVENT = {
   API_REQUEST: 'api_request',
   TOOL_RESULT: 'tool_result',
   HOOK_EXECUTION_COMPLETE: 'hook_execution_complete',
+  TOOL_DECISION: 'tool_decision',
 } as const;
 
 export const METRIC = {

@@ -220,6 +220,28 @@ export const activeTime = sqliteTable(
   ],
 );
 
+export const toolDecisions = sqliteTable(
+  'tool_decisions',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    timestamp: text('timestamp').notNull(),
+    userEmail: text('user_email'),
+    sessionId: text('session_id'),
+    toolName: text('tool_name'),
+    decision: text('decision'),
+    source: text('source'),
+    promptId: text('prompt_id'),
+    toolUseId: text('tool_use_id'),
+    appVersion: text('app_version'),
+  },
+  (t) => [
+    index('tool_decisions_timestamp_idx').on(t.timestamp),
+    index('tool_decisions_user_email_idx').on(t.userEmail),
+    index('tool_decisions_tool_name_idx').on(t.toolName),
+    index('tool_decisions_decision_idx').on(t.decision),
+  ],
+);
+
 export type InsertRawLog = typeof rawLogs.$inferInsert;
 export type InsertRawMetric = typeof rawMetrics.$inferInsert;
 export type InsertSkillEvent = typeof skillEvents.$inferInsert;
@@ -228,6 +250,7 @@ export type InsertCostUsage = typeof costUsage.$inferInsert;
 export type InsertTokenUsage = typeof tokenUsage.$inferInsert;
 export type InsertSessionCount = typeof sessionCounts.$inferInsert;
 export type InsertApiRequest = typeof apiRequests.$inferInsert;
+export type InsertToolDecision = typeof toolDecisions.$inferInsert;
 export type InsertToolResult = typeof toolResults.$inferInsert;
 export type InsertHookExecution = typeof hookExecutions.$inferInsert;
 export type InsertActiveTime = typeof activeTime.$inferInsert;

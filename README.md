@@ -20,6 +20,7 @@ Cloudflare D1(SQLite)
   ├── api_requests     API リクエストログ
   ├── tool_results     ツール実行ログ
   ├── hook_executions  フック実行ログ
+  ├── tool_decisions   ツール許可判断ログ
   ├── cost_usage       コストメトリクス(USD)
   ├── token_usage      トークン消費メトリクス
   ├── session_counts   セッション数メトリクス
@@ -210,6 +211,19 @@ erDiagram
 
     plugins ||--o{ skill_events : "plugin_id"
     plugins ||--o{ plugin_events : "plugin_id"
+    tool_decisions {
+        int id PK
+        text timestamp
+        text user_email
+        text session_id
+        text tool_name
+        text decision
+        text source
+        text prompt_id
+        text tool_use_id
+        text app_version
+    }
+
     plugins ||--o{ cost_usage : "plugin_id"
     plugins ||--o{ token_usage : "plugin_id"
 ```
@@ -226,6 +240,7 @@ erDiagram
 | `api_request` | `/v1/logs` | `api_requests` |
 | `tool_result` | `/v1/logs` | `tool_results` |
 | `hook_execution_complete` | `/v1/logs` | `hook_executions` |
+| `tool_decision` | `/v1/logs` | `tool_decisions` |
 | 全 dataPoint | `/v1/metrics` | `raw_metrics`(7日) |
 | `claude_code.cost.usage` | `/v1/metrics` | `cost_usage` |
 | `claude_code.token.usage` | `/v1/metrics` | `token_usage` |
