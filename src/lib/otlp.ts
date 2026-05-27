@@ -128,17 +128,37 @@ function findAttrValue(attrs: OtlpAttribute[] | undefined, key: AttrKey) {
 export function extractAttrString(
   attrs: OtlpAttribute[] | undefined,
   key: AttrKey,
+  defaultValue: string,
+): string;
+export function extractAttrString(
+  attrs: OtlpAttribute[] | undefined,
+  key: AttrKey,
+): string | undefined;
+export function extractAttrString(
+  attrs: OtlpAttribute[] | undefined,
+  key: AttrKey,
+  defaultValue?: string,
 ): string | undefined {
-  return findAttrValue(attrs, key)?.stringValue;
+  return findAttrValue(attrs, key)?.stringValue ?? defaultValue;
 }
 
 export function extractAttrDouble(
   attrs: OtlpAttribute[] | undefined,
   key: AttrKey,
+  defaultValue: number,
+): number;
+export function extractAttrDouble(
+  attrs: OtlpAttribute[] | undefined,
+  key: AttrKey,
+): number | undefined;
+export function extractAttrDouble(
+  attrs: OtlpAttribute[] | undefined,
+  key: AttrKey,
+  defaultValue?: number,
 ): number | undefined {
   const value = findAttrValue(attrs, key);
   if (!value) {
-    return;
+    return defaultValue;
   }
   if (value.doubleValue !== undefined) {
     return value.doubleValue;
@@ -148,18 +168,28 @@ export function extractAttrDouble(
   }
   if (value.stringValue !== undefined) {
     const n = Number(value.stringValue);
-    return Number.isNaN(n) ? undefined : n;
+    return Number.isNaN(n) ? defaultValue : n;
   }
-  return;
+  return defaultValue;
 }
 
 export function extractAttrBool(
   attrs: OtlpAttribute[] | undefined,
   key: AttrKey,
+  defaultValue: boolean,
+): boolean;
+export function extractAttrBool(
+  attrs: OtlpAttribute[] | undefined,
+  key: AttrKey,
+): boolean | undefined;
+export function extractAttrBool(
+  attrs: OtlpAttribute[] | undefined,
+  key: AttrKey,
+  defaultValue?: boolean,
 ): boolean | undefined {
   const value = findAttrValue(attrs, key);
   if (!value) {
-    return;
+    return defaultValue;
   }
   if (value.boolValue !== undefined) {
     return value.boolValue;
@@ -167,16 +197,26 @@ export function extractAttrBool(
   if (value.stringValue !== undefined) {
     return value.stringValue === 'true';
   }
-  return;
+  return defaultValue;
 }
 
 export function extractAttrInt(
   attrs: OtlpAttribute[] | undefined,
   key: AttrKey,
+  defaultValue: number,
+): number;
+export function extractAttrInt(
+  attrs: OtlpAttribute[] | undefined,
+  key: AttrKey,
+): number | undefined;
+export function extractAttrInt(
+  attrs: OtlpAttribute[] | undefined,
+  key: AttrKey,
+  defaultValue?: number,
 ): number | undefined {
   const value = findAttrValue(attrs, key);
   if (!value) {
-    return;
+    return defaultValue;
   }
   if (value.intValue !== undefined) {
     return Number(value.intValue);
@@ -186,9 +226,9 @@ export function extractAttrInt(
   }
   if (value.stringValue !== undefined) {
     const n = Number(value.stringValue);
-    return Number.isNaN(n) ? undefined : Math.round(n);
+    return Number.isNaN(n) ? defaultValue : Math.round(n);
   }
-  return;
+  return defaultValue;
 }
 
 export function nanoToIso(timeUnixNano: string | undefined): string {

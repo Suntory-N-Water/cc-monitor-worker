@@ -45,6 +45,7 @@ metricsRoute.post(
       const appVersion = extractAttrString(
         resourceMetric.resource?.attributes,
         ATTR.SERVICE_VERSION,
+        '',
       );
       for (const scopeMetric of resourceMetric.scopeMetrics ?? []) {
         for (const metric of scopeMetric.metrics ?? []) {
@@ -55,9 +56,16 @@ metricsRoute.post(
           for (const point of dataPoints) {
             const pointAttrs = point.attributes;
             const timestamp = nanoToIso(point.timeUnixNano);
-            const userEmail = extractAttrString(pointAttrs, ATTR.USER_EMAIL);
-            const sessionId = extractAttrString(pointAttrs, ATTR.SESSION_ID);
-            const model = extractAttrString(pointAttrs, ATTR.MODEL);
+            const userEmail = extractAttrString(
+              pointAttrs,
+              ATTR.USER_EMAIL,
+              '',
+            );
+            const sessionId = extractAttrString(
+              pointAttrs,
+              ATTR.SESSION_ID,
+              '',
+            );
 
             rawMetricRows.push({
               timestamp,
@@ -66,72 +74,66 @@ metricsRoute.post(
             });
 
             if (metricName === METRIC.COST_USAGE) {
-              const { asDouble } = dataPointValue(point);
-              if (asDouble !== undefined) {
-                const pluginId = await resolvePluginIdFromAttrs(
-                  db,
-                  pluginIdCache,
-                  pointAttrs,
-                );
-                costRows.push({
-                  timestamp,
-                  userEmail,
-                  sessionId,
-                  model,
-                  costUsd: asDouble,
-                  skillName: extractAttrString(pointAttrs, ATTR.SKILL_NAME),
-                  pluginId,
-                  appVersion,
-                });
-              }
+              const { asDouble: costUsd = 0 } = dataPointValue(point);
+              const pluginId = await resolvePluginIdFromAttrs(
+                db,
+                pluginIdCache,
+                pointAttrs,
+              );
+              costRows.push({
+                timestamp,
+                userEmail,
+                sessionId,
+                model: extractAttrString(pointAttrs, ATTR.MODEL, ''),
+                costUsd,
+                skillName: extractAttrString(pointAttrs, ATTR.SKILL_NAME),
+                pluginId,
+                appVersion,
+              });
               continue;
             }
 
             if (metricName === METRIC.TOKEN_USAGE) {
-              const tokenCount = dataPointInt(point);
-              if (tokenCount !== undefined) {
-                const pluginId = await resolvePluginIdFromAttrs(
-                  db,
-                  pluginIdCache,
-                  pointAttrs,
-                );
-                tokenRows.push({
-                  timestamp,
-                  userEmail,
-                  sessionId,
-                  model,
-                  tokenType: extractAttrString(pointAttrs, ATTR.TYPE),
-                  tokenCount,
-                  skillName: extractAttrString(pointAttrs, ATTR.SKILL_NAME),
-                  pluginId,
-                  appVersion,
-                });
-              }
+              const tokenCount = dataPointInt(point) ?? 0;
+              const pluginId = await resolvePluginIdFromAttrs(
+                db,
+                pluginIdCache,
+                pointAttrs,
+              );
+              tokenRows.push({
+                timestamp,
+                userEmail,
+                sessionId,
+                model: extractAttrString(pointAttrs, ATTR.MODEL, ''),
+                tokenType: extractAttrString(pointAttrs, ATTR.TYPE, ''),
+                tokenCount,
+                skillName: extractAttrString(pointAttrs, ATTR.SKILL_NAME),
+                pluginId,
+                appVersion,
+              });
               continue;
             }
 
             if (metricName === METRIC.SESSION_COUNT) {
-              const count = dataPointInt(point);
-              if (count !== undefined) {
-                sessionRows.push({
-                  timestamp,
-                  userEmail,
-                  sessionId,
-                  count,
-                  appVersion,
-                });
-              }
+              const count = dataPointInt(point) ?? 0;
+              sessionRows.push({
+                timestamp,
+                userEmail,
+                sessionId,
+                count,
+                appVersion,
+              });
               continue;
             }
 
             if (metricName === METRIC.ACTIVE_TIME) {
-              const { asDouble } = dataPointValue(point);
+              const { asDouble: durationSec = 0 } = dataPointValue(point);
               activeTimeRows.push({
                 timestamp,
                 userEmail,
                 sessionId,
-                type: extractAttrString(pointAttrs, ATTR.TYPE),
-                durationSec: asDouble,
+                type: extractAttrString(pointAttrs, ATTR.TYPE, ''),
+                durationSec,
                 appVersion,
               });
             }

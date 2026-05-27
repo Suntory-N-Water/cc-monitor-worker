@@ -48,14 +48,15 @@ logsRoute.post('/', sValidator('json', OtlpLogsPayloadSchema), async (c) => {
     const appVersion = extractAttrString(
       resourceLog.resource?.attributes,
       ATTR.SERVICE_VERSION,
+      '',
     );
     for (const scopeLog of resourceLog.scopeLogs ?? []) {
       for (const record of scopeLog.logRecords ?? []) {
         const attrs = record.attributes;
         const eventName = extractAttrString(attrs, ATTR.EVENT_NAME);
         const timestamp = nanoToIso(record.timeUnixNano);
-        const userEmail = extractAttrString(attrs, ATTR.USER_EMAIL);
-        const sessionId = extractAttrString(attrs, ATTR.SESSION_ID);
+        const userEmail = extractAttrString(attrs, ATTR.USER_EMAIL, '');
+        const sessionId = extractAttrString(attrs, ATTR.SESSION_ID, '');
 
         rawLogRows.push({
           timestamp,
@@ -73,12 +74,13 @@ logsRoute.post('/', sValidator('json', OtlpLogsPayloadSchema), async (c) => {
             timestamp,
             userEmail,
             sessionId,
-            skillName: extractAttrString(attrs, ATTR.SKILL_NAME),
+            skillName: extractAttrString(attrs, ATTR.SKILL_NAME, ''),
             invocationTrigger: extractAttrString(
               attrs,
               ATTR.INVOCATION_TRIGGER,
+              '',
             ),
-            skillSource: extractAttrString(attrs, ATTR.SKILL_SOURCE),
+            skillSource: extractAttrString(attrs, ATTR.SKILL_SOURCE, ''),
             pluginId,
             appVersion,
           });
@@ -94,6 +96,9 @@ logsRoute.post('/', sValidator('json', OtlpLogsPayloadSchema), async (c) => {
             pluginIdCache,
             attrs,
           );
+          if (pluginId === null) {
+            continue;
+          }
           pluginEventRows.push({
             timestamp,
             eventName,
@@ -110,15 +115,16 @@ logsRoute.post('/', sValidator('json', OtlpLogsPayloadSchema), async (c) => {
             timestamp,
             userEmail,
             sessionId,
-            model: extractAttrString(attrs, ATTR.MODEL),
-            costUsd: extractAttrDouble(attrs, ATTR.COST_USD),
-            durationMs: extractAttrInt(attrs, ATTR.DURATION_MS),
-            inputTokens: extractAttrInt(attrs, ATTR.INPUT_TOKENS),
-            outputTokens: extractAttrInt(attrs, ATTR.OUTPUT_TOKENS),
-            cacheReadTokens: extractAttrInt(attrs, ATTR.CACHE_READ_TOKENS),
+            model: extractAttrString(attrs, ATTR.MODEL, ''),
+            costUsd: extractAttrDouble(attrs, ATTR.COST_USD, 0),
+            durationMs: extractAttrInt(attrs, ATTR.DURATION_MS, 0),
+            inputTokens: extractAttrInt(attrs, ATTR.INPUT_TOKENS, 0),
+            outputTokens: extractAttrInt(attrs, ATTR.OUTPUT_TOKENS, 0),
+            cacheReadTokens: extractAttrInt(attrs, ATTR.CACHE_READ_TOKENS, 0),
             cacheCreationTokens: extractAttrInt(
               attrs,
               ATTR.CACHE_CREATION_TOKENS,
+              0,
             ),
             appVersion,
           });
@@ -130,11 +136,11 @@ logsRoute.post('/', sValidator('json', OtlpLogsPayloadSchema), async (c) => {
             timestamp,
             userEmail,
             sessionId,
-            toolName: extractAttrString(attrs, ATTR.TOOL_NAME),
-            success: extractAttrBool(attrs, ATTR.SUCCESS),
-            durationMs: extractAttrInt(attrs, ATTR.DURATION_MS),
-            promptId: extractAttrString(attrs, ATTR.PROMPT_ID),
-            toolUseId: extractAttrString(attrs, ATTR.TOOL_USE_ID),
+            toolName: extractAttrString(attrs, ATTR.TOOL_NAME, ''),
+            success: extractAttrBool(attrs, ATTR.SUCCESS, false),
+            durationMs: extractAttrInt(attrs, ATTR.DURATION_MS, 0),
+            promptId: extractAttrString(attrs, ATTR.PROMPT_ID, ''),
+            toolUseId: extractAttrString(attrs, ATTR.TOOL_USE_ID, ''),
             appVersion,
           });
           continue;
@@ -145,17 +151,18 @@ logsRoute.post('/', sValidator('json', OtlpLogsPayloadSchema), async (c) => {
             timestamp,
             userEmail,
             sessionId,
-            hookEvent: extractAttrString(attrs, ATTR.HOOK_EVENT),
-            hookName: extractAttrString(attrs, ATTR.HOOK_NAME),
-            numHooks: extractAttrInt(attrs, ATTR.NUM_HOOKS),
-            numSuccess: extractAttrInt(attrs, ATTR.NUM_SUCCESS),
-            numBlocking: extractAttrInt(attrs, ATTR.NUM_BLOCKING),
+            hookEvent: extractAttrString(attrs, ATTR.HOOK_EVENT, ''),
+            hookName: extractAttrString(attrs, ATTR.HOOK_NAME, ''),
+            numHooks: extractAttrInt(attrs, ATTR.NUM_HOOKS, 0),
+            numSuccess: extractAttrInt(attrs, ATTR.NUM_SUCCESS, 0),
+            numBlocking: extractAttrInt(attrs, ATTR.NUM_BLOCKING, 0),
             numNonBlockingError: extractAttrInt(
               attrs,
               ATTR.NUM_NON_BLOCKING_ERROR,
+              0,
             ),
-            totalDurationMs: extractAttrInt(attrs, ATTR.TOTAL_DURATION_MS),
-            promptId: extractAttrString(attrs, ATTR.PROMPT_ID),
+            totalDurationMs: extractAttrInt(attrs, ATTR.TOTAL_DURATION_MS, 0),
+            promptId: extractAttrString(attrs, ATTR.PROMPT_ID, ''),
             appVersion,
           });
           continue;
@@ -166,11 +173,11 @@ logsRoute.post('/', sValidator('json', OtlpLogsPayloadSchema), async (c) => {
             timestamp,
             userEmail,
             sessionId,
-            toolName: extractAttrString(attrs, ATTR.TOOL_NAME),
-            decision: extractAttrString(attrs, ATTR.DECISION),
-            source: extractAttrString(attrs, ATTR.SOURCE),
-            promptId: extractAttrString(attrs, ATTR.PROMPT_ID),
-            toolUseId: extractAttrString(attrs, ATTR.TOOL_USE_ID),
+            toolName: extractAttrString(attrs, ATTR.TOOL_NAME, ''),
+            decision: extractAttrString(attrs, ATTR.DECISION, ''),
+            source: extractAttrString(attrs, ATTR.SOURCE, ''),
+            promptId: extractAttrString(attrs, ATTR.PROMPT_ID, ''),
+            toolUseId: extractAttrString(attrs, ATTR.TOOL_USE_ID, ''),
             appVersion,
           });
         }
