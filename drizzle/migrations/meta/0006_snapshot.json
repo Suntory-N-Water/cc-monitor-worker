@@ -60,23 +60,17 @@
       "indexes": {
         "active_time_timestamp_idx": {
           "name": "active_time_timestamp_idx",
-          "columns": [
-            "timestamp"
-          ],
+          "columns": ["timestamp"],
           "isUnique": false
         },
         "active_time_user_email_idx": {
           "name": "active_time_user_email_idx",
-          "columns": [
-            "user_email"
-          ],
+          "columns": ["user_email"],
           "isUnique": false
         },
         "active_time_session_id_idx": {
           "name": "active_time_session_id_idx",
-          "columns": [
-            "session_id"
-          ],
+          "columns": ["session_id"],
           "isUnique": false
         }
       },
@@ -176,23 +170,17 @@
       "indexes": {
         "api_requests_timestamp_idx": {
           "name": "api_requests_timestamp_idx",
-          "columns": [
-            "timestamp"
-          ],
+          "columns": ["timestamp"],
           "isUnique": false
         },
         "api_requests_user_email_idx": {
           "name": "api_requests_user_email_idx",
-          "columns": [
-            "user_email"
-          ],
+          "columns": ["user_email"],
           "isUnique": false
         },
         "api_requests_session_id_idx": {
           "name": "api_requests_session_id_idx",
-          "columns": [
-            "session_id"
-          ],
+          "columns": ["session_id"],
           "isUnique": false
         }
       },
@@ -271,16 +259,12 @@
       "indexes": {
         "cost_usage_timestamp_idx": {
           "name": "cost_usage_timestamp_idx",
-          "columns": [
-            "timestamp"
-          ],
+          "columns": ["timestamp"],
           "isUnique": false
         },
         "cost_usage_user_email_idx": {
           "name": "cost_usage_user_email_idx",
-          "columns": [
-            "user_email"
-          ],
+          "columns": ["user_email"],
           "isUnique": false
         }
       },
@@ -289,12 +273,8 @@
           "name": "cost_usage_plugin_id_plugins_id_fk",
           "tableFrom": "cost_usage",
           "tableTo": "plugins",
-          "columnsFrom": [
-            "plugin_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["plugin_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -401,23 +381,17 @@
       "indexes": {
         "hook_executions_timestamp_idx": {
           "name": "hook_executions_timestamp_idx",
-          "columns": [
-            "timestamp"
-          ],
+          "columns": ["timestamp"],
           "isUnique": false
         },
         "hook_executions_user_email_idx": {
           "name": "hook_executions_user_email_idx",
-          "columns": [
-            "user_email"
-          ],
+          "columns": ["user_email"],
           "isUnique": false
         },
         "hook_executions_session_id_idx": {
           "name": "hook_executions_session_id_idx",
-          "columns": [
-            "session_id"
-          ],
+          "columns": ["session_id"],
           "isUnique": false
         }
       },
@@ -482,16 +456,12 @@
       "indexes": {
         "plugin_events_timestamp_idx": {
           "name": "plugin_events_timestamp_idx",
-          "columns": [
-            "timestamp"
-          ],
+          "columns": ["timestamp"],
           "isUnique": false
         },
         "plugin_events_user_email_idx": {
           "name": "plugin_events_user_email_idx",
-          "columns": [
-            "user_email"
-          ],
+          "columns": ["user_email"],
           "isUnique": false
         }
       },
@@ -500,12 +470,8 @@
           "name": "plugin_events_plugin_id_plugins_id_fk",
           "tableFrom": "plugin_events",
           "tableTo": "plugins",
-          "columnsFrom": [
-            "plugin_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["plugin_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -542,9 +508,7 @@
       "indexes": {
         "plugins_plugin_name_unique": {
           "name": "plugins_plugin_name_unique",
-          "columns": [
-            "plugin_name"
-          ],
+          "columns": ["plugin_name"],
           "isUnique": true
         }
       },
@@ -588,16 +552,12 @@
       "indexes": {
         "raw_logs_timestamp_idx": {
           "name": "raw_logs_timestamp_idx",
-          "columns": [
-            "timestamp"
-          ],
+          "columns": ["timestamp"],
           "isUnique": false
         },
         "raw_logs_event_name_idx": {
           "name": "raw_logs_event_name_idx",
-          "columns": [
-            "event_name"
-          ],
+          "columns": ["event_name"],
           "isUnique": false
         }
       },
@@ -641,16 +601,12 @@
       "indexes": {
         "raw_metrics_timestamp_idx": {
           "name": "raw_metrics_timestamp_idx",
-          "columns": [
-            "timestamp"
-          ],
+          "columns": ["timestamp"],
           "isUnique": false
         },
         "raw_metrics_metric_name_idx": {
           "name": "raw_metrics_metric_name_idx",
-          "columns": [
-            "metric_name"
-          ],
+          "columns": ["metric_name"],
           "isUnique": false
         }
       },
@@ -708,16 +664,12 @@
       "indexes": {
         "session_counts_timestamp_idx": {
           "name": "session_counts_timestamp_idx",
-          "columns": [
-            "timestamp"
-          ],
+          "columns": ["timestamp"],
           "isUnique": false
         },
         "session_counts_user_email_idx": {
           "name": "session_counts_user_email_idx",
-          "columns": [
-            "user_email"
-          ],
+          "columns": ["user_email"],
           "isUnique": false
         }
       },
@@ -796,30 +748,22 @@
       "indexes": {
         "skill_events_timestamp_idx": {
           "name": "skill_events_timestamp_idx",
-          "columns": [
-            "timestamp"
-          ],
+          "columns": ["timestamp"],
           "isUnique": false
         },
         "skill_events_user_email_idx": {
           "name": "skill_events_user_email_idx",
-          "columns": [
-            "user_email"
-          ],
+          "columns": ["user_email"],
           "isUnique": false
         },
         "skill_events_skill_name_idx": {
           "name": "skill_events_skill_name_idx",
-          "columns": [
-            "skill_name"
-          ],
+          "columns": ["skill_name"],
           "isUnique": false
         },
         "skill_events_session_id_idx": {
           "name": "skill_events_session_id_idx",
-          "columns": [
-            "session_id"
-          ],
+          "columns": ["session_id"],
           "isUnique": false
         }
       },
@@ -828,12 +772,8 @@
           "name": "skill_events_plugin_id_plugins_id_fk",
           "tableFrom": "skill_events",
           "tableTo": "plugins",
-          "columnsFrom": [
-            "plugin_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["plugin_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -919,16 +859,12 @@
       "indexes": {
         "token_usage_timestamp_idx": {
           "name": "token_usage_timestamp_idx",
-          "columns": [
-            "timestamp"
-          ],
+          "columns": ["timestamp"],
           "isUnique": false
         },
         "token_usage_user_email_idx": {
           "name": "token_usage_user_email_idx",
-          "columns": [
-            "user_email"
-          ],
+          "columns": ["user_email"],
           "isUnique": false
         }
       },
@@ -937,12 +873,8 @@
           "name": "token_usage_plugin_id_plugins_id_fk",
           "tableFrom": "token_usage",
           "tableTo": "plugins",
-          "columnsFrom": [
-            "plugin_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["plugin_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -1028,30 +960,22 @@
       "indexes": {
         "tool_decisions_timestamp_idx": {
           "name": "tool_decisions_timestamp_idx",
-          "columns": [
-            "timestamp"
-          ],
+          "columns": ["timestamp"],
           "isUnique": false
         },
         "tool_decisions_user_email_idx": {
           "name": "tool_decisions_user_email_idx",
-          "columns": [
-            "user_email"
-          ],
+          "columns": ["user_email"],
           "isUnique": false
         },
         "tool_decisions_tool_name_idx": {
           "name": "tool_decisions_tool_name_idx",
-          "columns": [
-            "tool_name"
-          ],
+          "columns": ["tool_name"],
           "isUnique": false
         },
         "tool_decisions_decision_idx": {
           "name": "tool_decisions_decision_idx",
-          "columns": [
-            "decision"
-          ],
+          "columns": ["decision"],
           "isUnique": false
         }
       },
@@ -1137,30 +1061,22 @@
       "indexes": {
         "tool_results_timestamp_idx": {
           "name": "tool_results_timestamp_idx",
-          "columns": [
-            "timestamp"
-          ],
+          "columns": ["timestamp"],
           "isUnique": false
         },
         "tool_results_user_email_idx": {
           "name": "tool_results_user_email_idx",
-          "columns": [
-            "user_email"
-          ],
+          "columns": ["user_email"],
           "isUnique": false
         },
         "tool_results_session_id_idx": {
           "name": "tool_results_session_id_idx",
-          "columns": [
-            "session_id"
-          ],
+          "columns": ["session_id"],
           "isUnique": false
         },
         "tool_results_tool_name_idx": {
           "name": "tool_results_tool_name_idx",
-          "columns": [
-            "tool_name"
-          ],
+          "columns": ["tool_name"],
           "isUnique": false
         }
       },
