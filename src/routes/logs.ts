@@ -1,4 +1,5 @@
 import { sValidator } from '@hono/standard-validator';
+import { sql } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/d1';
 import { Hono } from 'hono';
 import {
@@ -10,6 +11,7 @@ import {
   type InsertToolDecision,
   type InsertToolResult,
   apiRequests,
+  eventCatalog,
   hookExecutions,
   pluginEvents,
   rawLogs,
@@ -17,6 +19,12 @@ import {
   toolDecisions,
   toolResults,
 } from '../db/schema';
+import { chunk } from '../lib/array';
+import {
+  type CatalogEntry,
+  catalogMapToRows,
+  recordCatalogObservation,
+} from '../lib/catalog';
 import { resolvePluginIdFromAttrs } from '../lib/plugin';
 import {
   ATTR,
@@ -43,6 +51,7 @@ logsRoute.post('/', sValidator('json', OtlpLogsPayloadSchema), async (c) => {
   const apiRequestRows: InsertApiRequest[] = [];
   const toolResultRows: InsertToolResult[] = [];
   const hookExecutionRows: InsertHookExecution[] = [];
+  const catalogMap = new Map<string, CatalogEntry>();
 
   for (const resourceLog of payload.resourceLogs ?? []) {
     const appVersion = extractAttrString(
@@ -62,6 +71,12 @@ logsRoute.post('/', sValidator('json', OtlpLogsPayloadSchema), async (c) => {
           timestamp,
           eventName,
           raw: JSON.stringify(record),
+        });
+
+        recordCatalogObservation(catalogMap, {
+          name: eventName,
+          timestamp,
+          version: appVersion,
         });
 
         if (eventName === EVENT.SKILL_ACTIVATED) {
@@ -185,6 +200,8 @@ logsRoute.post('/', sValidator('json', OtlpLogsPayloadSchema), async (c) => {
     }
   }
 
+  const catalogRows = catalogMapToRows(catalogMap);
+
   await Promise.all([
     rawLogRows.length > 0 ? db.insert(rawLogs).values(rawLogRows) : null,
     skillRows.length > 0 ? db.insert(skillEvents).values(skillRows) : null,
@@ -203,6 +220,19 @@ logsRoute.post('/', sValidator('json', OtlpLogsPayloadSchema), async (c) => {
     toolDecisionRows.length > 0
       ? db.insert(toolDecisions).values(toolDecisionRows)
       : null,
+    // D1 の bound parameters 上限を考慮して 10 行ずつに分割
+    ...chunk(catalogRows, 10).map((rows) =>
+      db
+        .insert(eventCatalog)
+        .values(rows)
+        .onConflictDoUpdate({
+          target: eventCatalog.name,
+          set: {
+            lastSeenAt: sql`CASE WHEN excluded.last_seen_at > ${eventCatalog.lastSeenAt} THEN excluded.last_seen_at ELSE ${eventCatalog.lastSeenAt} END`,
+            lastSeenVersion: sql`CASE WHEN excluded.last_seen_at > ${eventCatalog.lastSeenAt} THEN excluded.last_seen_version ELSE ${eventCatalog.lastSeenVersion} END`,
+          },
+        }),
+    ),
   ]);
 
   return c.json({ partialSuccess: {} });

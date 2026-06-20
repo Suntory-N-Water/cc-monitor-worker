@@ -119,6 +119,13 @@ export const METRIC = {
   ACTIVE_TIME: 'claude_code.active_time.total',
 } as const;
 
+export const KNOWN_EVENT_NAMES: ReadonlySet<string> = new Set(
+  Object.values(EVENT),
+);
+export const KNOWN_METRIC_NAMES: ReadonlySet<string> = new Set(
+  Object.values(METRIC),
+);
+
 type AttrKey = (typeof ATTR)[keyof typeof ATTR];
 
 function findAttrValue(attrs: OtlpAttribute[] | undefined, key: AttrKey) {

@@ -222,6 +222,22 @@ export const activeTime = sqliteTable(
   ],
 );
 
+export const eventCatalog = sqliteTable('event_catalog', {
+  name: text('name').primaryKey(),
+  firstSeenAt: text('first_seen_at').notNull(),
+  lastSeenAt: text('last_seen_at').notNull(),
+  firstSeenVersion: text('first_seen_version').notNull().default(''),
+  lastSeenVersion: text('last_seen_version').notNull().default(''),
+});
+
+export const metricCatalog = sqliteTable('metric_catalog', {
+  name: text('name').primaryKey(),
+  firstSeenAt: text('first_seen_at').notNull(),
+  lastSeenAt: text('last_seen_at').notNull(),
+  firstSeenVersion: text('first_seen_version').notNull().default(''),
+  lastSeenVersion: text('last_seen_version').notNull().default(''),
+});
+
 export const toolDecisions = sqliteTable(
   'tool_decisions',
   {
@@ -256,3 +272,5 @@ export type InsertToolDecision = typeof toolDecisions.$inferInsert;
 export type InsertToolResult = typeof toolResults.$inferInsert;
 export type InsertHookExecution = typeof hookExecutions.$inferInsert;
 export type InsertActiveTime = typeof activeTime.$inferInsert;
+export type InsertEventCatalog = typeof eventCatalog.$inferInsert;
+export type InsertMetricCatalog = typeof metricCatalog.$inferInsert;

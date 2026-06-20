@@ -1,4 +1,5 @@
 import { sValidator } from '@hono/standard-validator';
+import { sql } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/d1';
 import { Hono } from 'hono';
 import {
@@ -9,11 +10,17 @@ import {
   type InsertTokenUsage,
   activeTime,
   costUsage,
+  metricCatalog,
   rawMetrics,
   sessionCounts,
   tokenUsage,
 } from '../db/schema';
 import { chunk } from '../lib/array';
+import {
+  type CatalogEntry,
+  catalogMapToRows,
+  recordCatalogObservation,
+} from '../lib/catalog';
 import { resolvePluginIdFromAttrs } from '../lib/plugin';
 import {
   ATTR,
@@ -40,6 +47,7 @@ metricsRoute.post(
     const tokenRows: InsertTokenUsage[] = [];
     const sessionRows: InsertSessionCount[] = [];
     const activeTimeRows: InsertActiveTime[] = [];
+    const catalogMap = new Map<string, CatalogEntry>();
 
     for (const resourceMetric of payload.resourceMetrics ?? []) {
       const appVersion = extractAttrString(
@@ -71,6 +79,12 @@ metricsRoute.post(
               timestamp,
               metricName,
               raw: JSON.stringify(point),
+            });
+
+            recordCatalogObservation(catalogMap, {
+              name: metricName,
+              timestamp,
+              version: appVersion,
             });
 
             if (metricName === METRIC.COST_USAGE) {
@@ -142,6 +156,8 @@ metricsRoute.post(
       }
     }
 
+    const catalogRows = catalogMapToRows(catalogMap);
+
     // D1 の bound parameters 上限(100)を考慮して 10 行ずつ分割
     await Promise.all([
       ...chunk(rawMetricRows, 10).map((rows) =>
@@ -154,6 +170,18 @@ metricsRoute.post(
       ),
       ...chunk(activeTimeRows, 10).map((rows) =>
         db.insert(activeTime).values(rows),
+      ),
+      ...chunk(catalogRows, 10).map((rows) =>
+        db
+          .insert(metricCatalog)
+          .values(rows)
+          .onConflictDoUpdate({
+            target: metricCatalog.name,
+            set: {
+              lastSeenAt: sql`CASE WHEN excluded.last_seen_at > ${metricCatalog.lastSeenAt} THEN excluded.last_seen_at ELSE ${metricCatalog.lastSeenAt} END`,
+              lastSeenVersion: sql`CASE WHEN excluded.last_seen_at > ${metricCatalog.lastSeenAt} THEN excluded.last_seen_version ELSE ${metricCatalog.lastSeenVersion} END`,
+            },
+          }),
       ),
     ]);
 
