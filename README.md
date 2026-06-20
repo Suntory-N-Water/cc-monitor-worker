@@ -24,7 +24,9 @@ Cloudflare D1(SQLite)
   ├── cost_usage       コストメトリクス(USD)
   ├── token_usage      トークン消費メトリクス
   ├── session_counts   セッション数メトリクス
-  └── active_time      アクティブ時間メトリクス
+  ├── active_time      アクティブ時間メトリクス
+  ├── event_catalog    event_name ごとに初回・直近の受信時刻とバージョンを記録(保持期間なし)
+  └── metric_catalog   metric_name ごとに初回・直近の受信時刻とバージョンを記録(保持期間なし)
 ```
 
 メンバー側の作業は不要。管理者が claude.ai Admin Settings で managed settings を配布するだけで自動収集が始まる。
@@ -45,6 +47,7 @@ sequenceDiagram
         W->>W: Bearer 認証
         W->>W: valibot でペイロード検証
         W->>D1: INSERT raw_logs(全レコード)
+        W->>D1: UPSERT event_catalog(event_name 単位)
         alt skill_activated
             W->>D1: INSERT skill_events
         else plugin_loaded / plugin_installed
@@ -62,6 +65,7 @@ sequenceDiagram
         W->>W: Bearer 認証
         W->>W: valibot でペイロード検証
         W->>D1: INSERT raw_metrics(全 dataPoint)
+        W->>D1: UPSERT metric_catalog(metric_name 単位)
         alt claude_code.cost.usage
             W->>D1: INSERT cost_usage
         else claude_code.token.usage
@@ -226,22 +230,38 @@ erDiagram
 
     plugins ||--o{ cost_usage : "plugin_id"
     plugins ||--o{ token_usage : "plugin_id"
+
+    event_catalog {
+        text name PK
+        text first_seen_at
+        text last_seen_at
+        text first_seen_version
+        text last_seen_version
+    }
+
+    metric_catalog {
+        text name PK
+        text first_seen_at
+        text last_seen_at
+        text first_seen_version
+        text last_seen_version
+    }
 ```
 
 ## 収集するデータ
 
-全ログレコードは `raw_logs`、全メトリクス dataPoint は `raw_metrics` に保存される(保持期間7日)。既知のイベント・メトリクスは下記の構造化テーブルにも同時に挿入される。
+全ログレコードは `raw_logs`、全メトリクス dataPoint は `raw_metrics` に保存される(保持期間7日)。既知のイベント・メトリクスは下記の構造化テーブルにも同時に挿入される。受信したすべての `event_name` / `metric_name` は `event_catalog` / `metric_catalog` に「初めて受信した時刻・バージョン」と「直近で受信した時刻・バージョン」が記録され、こちらは保持期間を設けず残し続ける(ADR 0002 参照)。
 
 | イベント / メトリクス | エンドポイント | 構造化テーブル |
 |---|---|---|
-| 全レコード | `/v1/logs` | `raw_logs`(7日) |
+| 全レコード | `/v1/logs` | `raw_logs`(7日) / `event_catalog`(保持期間なし) |
 | `skill_activated` | `/v1/logs` | `skill_events` |
 | `plugin_loaded` / `plugin_installed` | `/v1/logs` | `plugin_events` |
 | `api_request` | `/v1/logs` | `api_requests` |
 | `tool_result` | `/v1/logs` | `tool_results` |
 | `hook_execution_complete` | `/v1/logs` | `hook_executions` |
 | `tool_decision` | `/v1/logs` | `tool_decisions` |
-| 全 dataPoint | `/v1/metrics` | `raw_metrics`(7日) |
+| 全 dataPoint | `/v1/metrics` | `raw_metrics`(7日) / `metric_catalog`(保持期間なし) |
 | `claude_code.cost.usage` | `/v1/metrics` | `cost_usage` |
 | `claude_code.token.usage` | `/v1/metrics` | `token_usage` |
 | `claude_code.session.count` | `/v1/metrics` | `session_counts` |
