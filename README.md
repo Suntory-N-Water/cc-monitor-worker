@@ -176,6 +176,10 @@ erDiagram
         text session_id
         text model
         real cost_usd
+        text query_source
+        text agent_name
+        text speed
+        text effort
         text skill_name
         int plugin_id FK
         text app_version
@@ -189,6 +193,10 @@ erDiagram
         text model
         text token_type
         int token_count
+        text query_source
+        text agent_name
+        text speed
+        text effort
         text skill_name
         int plugin_id FK
         text app_version
@@ -252,20 +260,20 @@ erDiagram
 
 全ログレコードは `raw_logs`、全メトリクス dataPoint は `raw_metrics` に保存される(保持期間7日)。既知のイベント・メトリクスは下記の構造化テーブルにも同時に挿入される。受信したすべての `event_name` / `metric_name` は `event_catalog` / `metric_catalog` に「初めて受信した時刻・バージョン」と「直近で受信した時刻・バージョン」が記録され、こちらは保持期間を設けず残し続ける(ADR 0002 参照)。
 
-| イベント / メトリクス | エンドポイント | 構造化テーブル |
-|---|---|---|
-| 全レコード | `/v1/logs` | `raw_logs`(7日) / `event_catalog`(保持期間なし) |
-| `skill_activated` | `/v1/logs` | `skill_events` |
-| `plugin_loaded` / `plugin_installed` | `/v1/logs` | `plugin_events` |
-| `api_request` | `/v1/logs` | `api_requests` |
-| `tool_result` | `/v1/logs` | `tool_results` |
-| `hook_execution_complete` | `/v1/logs` | `hook_executions` |
-| `tool_decision` | `/v1/logs` | `tool_decisions` |
-| 全 dataPoint | `/v1/metrics` | `raw_metrics`(7日) / `metric_catalog`(保持期間なし) |
-| `claude_code.cost.usage` | `/v1/metrics` | `cost_usage` |
-| `claude_code.token.usage` | `/v1/metrics` | `token_usage` |
-| `claude_code.session.count` | `/v1/metrics` | `session_counts` |
-| `claude_code.active_time.total` | `/v1/metrics` | `active_time` |
+| イベント / メトリクス                | エンドポイント | 構造化テーブル                                                   |
+| ------------------------------------ | -------------- | ---------------------------------------------------------------- |
+| 全レコード                           | `/v1/logs`     | `raw_logs`(7日) / `event_catalog`(保持期間なし)                  |
+| `skill_activated`                    | `/v1/logs`     | `skill_events`                                                   |
+| `plugin_loaded` / `plugin_installed` | `/v1/logs`     | `plugin_events`                                                  |
+| `api_request`                        | `/v1/logs`     | `api_requests`                                                   |
+| `tool_result`                        | `/v1/logs`     | `tool_results`                                                   |
+| `hook_execution_complete`            | `/v1/logs`     | `hook_executions`                                                |
+| `tool_decision`                      | `/v1/logs`     | `tool_decisions`                                                 |
+| 全 dataPoint                         | `/v1/metrics`  | `raw_metrics`(7日) / `metric_catalog`(保持期間なし)              |
+| `claude_code.cost.usage`             | `/v1/metrics`  | `cost_usage`(query_source / agent_name / speed / effort も保存)  |
+| `claude_code.token.usage`            | `/v1/metrics`  | `token_usage`(query_source / agent_name / speed / effort も保存) |
+| `claude_code.session.count`          | `/v1/metrics`  | `session_counts`                                                 |
+| `claude_code.active_time.total`      | `/v1/metrics`  | `active_time`                                                    |
 
 ## セットアップ
 
@@ -352,15 +360,15 @@ claude.ai の Admin Settings > Claude Code > Managed settings に投入する JS
 
 ## 開発コマンド
 
-| コマンド | 内容 |
-|---|---|
-| `bun run dev` | ローカルサーバー起動 |
+| コマンド                       | 内容                                  |
+| ------------------------------ | ------------------------------------- |
+| `bun run dev`                  | ローカルサーバー起動                  |
 | `bun run dev --test-scheduled` | Cron ハンドラーのローカルテスト有効化 |
-| `bun run ai-check` | format + lint + 型チェック |
-| `bun run db:generate` | スキーマ変更からマイグレーション生成 |
-| `bun run db:migrate:local` | ローカル D1 にマイグレーション適用 |
-| `bun run db:migrate:remote` | 本番 D1 にマイグレーション適用 |
-| `bun run deploy` | 本番デプロイ |
+| `bun run ai-check`             | format + lint + 型チェック            |
+| `bun run db:generate`          | スキーマ変更からマイグレーション生成  |
+| `bun run db:migrate:local`     | ローカル D1 にマイグレーション適用    |
+| `bun run db:migrate:remote`    | 本番 D1 にマイグレーション適用        |
+| `bun run deploy`               | 本番デプロイ                          |
 
 ## D1 クエリ例
 
@@ -378,6 +386,32 @@ SELECT p.plugin_name, SUM(c.cost_usd) AS total_usd
 FROM cost_usage c
 JOIN plugins p ON c.plugin_id = p.id
 GROUP BY p.plugin_name ORDER BY total_usd DESC;
+
+-- Subagent 種別別のトークン内訳
+SELECT
+  agent_name,
+  model,
+  SUM(CASE WHEN token_type = 'input' THEN token_count ELSE 0 END) AS input_tokens,
+  SUM(CASE WHEN token_type = 'output' THEN token_count ELSE 0 END) AS output_tokens,
+  SUM(CASE WHEN token_type = 'cacheCreation' THEN token_count ELSE 0 END) AS cache_creation_input_tokens,
+  SUM(CASE WHEN token_type = 'cacheRead' THEN token_count ELSE 0 END) AS cache_read_input_tokens
+FROM token_usage
+WHERE query_source = 'subagent'
+GROUP BY agent_name, model
+ORDER BY output_tokens DESC;
+
+-- Subagent 種別別の USD 合計
+SELECT
+  agent_name,
+  model,
+  speed,
+  effort,
+  COUNT(*) AS requests,
+  SUM(cost_usd) AS total_usd
+FROM cost_usage
+WHERE query_source = 'subagent'
+GROUP BY agent_name, model, speed, effort
+ORDER BY total_usd DESC;
 ```
 
 ## 新しいメトリクス・イベントの追加

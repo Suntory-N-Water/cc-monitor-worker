@@ -64,6 +64,13 @@
       "when": 1781934200862,
       "tag": "0008_certain_bastion",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "6",
+      "when": 1782627310929,
+      "tag": "0009_purple_mockingbird",
+      "breakpoints": true
     }
   ]
 }
