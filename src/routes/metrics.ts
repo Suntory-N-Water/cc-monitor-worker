@@ -115,13 +115,27 @@ metricsRoute.post(
               if (!endTimeNs) {
                 continue;
               }
-              const key = `${sessionId}\u0000${startTimeNs}\u0000${endTimeNs}`;
               const pluginId = await resolvePluginIdFromAttrs(
                 db,
                 pluginIdCache,
                 pointAttrs,
               );
               const model = extractAttrString(pointAttrs, ATTR.MODEL, '');
+              const querySource = extractAttrString(
+                pointAttrs,
+                ATTR.QUERY_SOURCE,
+              );
+              const agentName = extractAttrString(pointAttrs, ATTR.AGENT_NAME);
+              const skillName = extractAttrString(pointAttrs, ATTR.SKILL_NAME);
+              const key = JSON.stringify([
+                sessionId,
+                startTimeNs,
+                endTimeNs,
+                querySource,
+                agentName,
+                skillName,
+                pluginId,
+              ]);
               const existingGroup = usageGroups.get(key);
               const createdGroup: UsageEventGroup = {
                 row: {
@@ -129,11 +143,11 @@ metricsRoute.post(
                   startTimeNs,
                   endTimeNs,
                   model,
-                  querySource: extractAttrString(pointAttrs, ATTR.QUERY_SOURCE),
-                  agentName: extractAttrString(pointAttrs, ATTR.AGENT_NAME),
+                  querySource,
+                  agentName,
                   speed: extractAttrString(pointAttrs, ATTR.SPEED),
                   effort: extractAttrString(pointAttrs, ATTR.EFFORT),
-                  skillName: extractAttrString(pointAttrs, ATTR.SKILL_NAME),
+                  skillName,
                   pluginId,
                 },
                 tokens: new Map(),
@@ -224,8 +238,20 @@ metricsRoute.post(
               usageEvents.sessionId,
               usageEvents.startTimeNs,
               usageEvents.endTimeNs,
+              usageEvents.querySource,
+              usageEvents.agentName,
+              usageEvents.skillName,
+              usageEvents.pluginId,
             ],
-            set: { sessionId: sql`excluded.session_id` },
+            set: {
+              model: sql`COALESCE(NULLIF(${usageEvents.model}, ''), excluded.model, ${usageEvents.model})`,
+              querySource: sql`COALESCE(${usageEvents.querySource}, excluded.query_source)`,
+              agentName: sql`COALESCE(${usageEvents.agentName}, excluded.agent_name)`,
+              speed: sql`COALESCE(${usageEvents.speed}, excluded.speed)`,
+              effort: sql`COALESCE(${usageEvents.effort}, excluded.effort)`,
+              skillName: sql`COALESCE(${usageEvents.skillName}, excluded.skill_name)`,
+              pluginId: sql`COALESCE(${usageEvents.pluginId}, excluded.plugin_id)`,
+            },
           })
           .returning({ id: usageEvents.id }),
       );
