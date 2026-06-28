@@ -326,11 +326,13 @@ claude.ai の Admin Settings > Claude Code > Managed settings に投入する JS
 {
   "env": {
     "CLAUDE_CODE_ENABLE_TELEMETRY": "1",
+    "CLAUDE_CODE_OTEL_DIAG_STDERR": "1",
     "OTEL_LOG_TOOL_DETAILS": "1",
     "OTEL_LOGS_EXPORTER": "otlp",
     "OTEL_METRICS_EXPORTER": "otlp",
     "OTEL_METRICS_INCLUDE_VERSION": "true",
     "OTEL_EXPORTER_OTLP_PROTOCOL": "http/json",
+    "OTEL_METRICS_INCLUDE_ENTRYPOINT": "true",
     "OTEL_EXPORTER_OTLP_ENDPOINT": "https://cc-monitor-worker.<account>.workers.dev",
     "OTEL_EXPORTER_OTLP_HEADERS": "Authorization=Bearer <登録したトークン>"
   }
@@ -345,11 +347,13 @@ claude.ai の Admin Settings > Claude Code > Managed settings に投入する JS
 {
   "env": {
     "CLAUDE_CODE_ENABLE_TELEMETRY": "1",
+    "CLAUDE_CODE_OTEL_DIAG_STDERR": "1",
     "OTEL_LOG_TOOL_DETAILS": "1",
     "OTEL_LOGS_EXPORTER": "otlp",
     "OTEL_METRICS_EXPORTER": "otlp",
     "OTEL_METRICS_INCLUDE_VERSION": "true",
     "OTEL_EXPORTER_OTLP_PROTOCOL": "http/json",
+    "OTEL_METRICS_INCLUDE_ENTRYPOINT": "true",
     "OTEL_EXPORTER_OTLP_ENDPOINT": "https://cc-monitor-worker.<account>.workers.dev",
     "OTEL_EXPORTER_OTLP_HEADERS": "Authorization=Bearer <登録したトークン>"
   }
