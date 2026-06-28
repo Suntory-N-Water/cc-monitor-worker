@@ -71,6 +71,13 @@
       "when": 1782627310929,
       "tag": "0009_purple_mockingbird",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "6",
+      "when": 1782634828925,
+      "tag": "0010_dapper_mastermind",
+      "breakpoints": true
     }
   ]
 }

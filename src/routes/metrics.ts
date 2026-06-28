@@ -4,16 +4,18 @@ import { drizzle } from 'drizzle-orm/d1';
 import { Hono } from 'hono';
 import {
   type InsertActiveTime,
-  type InsertCostUsage,
+  type InsertCostAmount,
   type InsertRawMetric,
   type InsertSessionCount,
-  type InsertTokenUsage,
+  type InsertTokenAmount,
+  type InsertUsageEvent,
   activeTime,
-  costUsage,
+  costAmounts,
   metricCatalog,
   rawMetrics,
   sessionCounts,
-  tokenUsage,
+  tokenAmounts,
+  usageEvents,
 } from '../db/schema';
 import { chunk } from '../lib/array';
 import {
@@ -22,6 +24,7 @@ import {
   recordCatalogObservation,
 } from '../lib/catalog';
 import { resolvePluginIdFromAttrs } from '../lib/plugin';
+import { upsertSession } from '../lib/session';
 import {
   ATTR,
   METRIC,
@@ -34,6 +37,12 @@ import {
 
 export const metricsRoute = new Hono<{ Bindings: CloudflareBindings }>();
 
+type UsageEventGroup = {
+  row: InsertUsageEvent;
+  costUsd?: number;
+  tokens: Map<string, number>;
+};
+
 metricsRoute.post(
   '/',
   sValidator('json', OtlpMetricsPayloadSchema),
@@ -43,8 +52,7 @@ metricsRoute.post(
     const pluginIdCache = new Map<string, number>();
 
     const rawMetricRows: InsertRawMetric[] = [];
-    const costRows: InsertCostUsage[] = [];
-    const tokenRows: InsertTokenUsage[] = [];
+    const usageGroups = new Map<string, UsageEventGroup>();
     const sessionRows: InsertSessionCount[] = [];
     const activeTimeRows: InsertActiveTime[] = [];
     const catalogMap = new Map<string, CatalogEntry>();
@@ -63,7 +71,9 @@ metricsRoute.post(
 
           for (const point of dataPoints) {
             const pointAttrs = point.attributes;
-            const timestamp = nanoToIso(point.timeUnixNano);
+            const endTimeNs = point.timeUnixNano ?? '';
+            const startTimeNs = point.startTimeUnixNano ?? '';
+            const timestamp = nanoToIso(endTimeNs);
             const userEmail = extractAttrString(
               pointAttrs,
               ATTR.USER_EMAIL,
@@ -87,52 +97,68 @@ metricsRoute.post(
               version: appVersion,
             });
 
-            if (metricName === METRIC.COST_USAGE) {
-              const { asDouble: costUsd = 0 } = dataPointValue(point);
-              const pluginId = await resolvePluginIdFromAttrs(
-                db,
-                pluginIdCache,
-                pointAttrs,
-              );
-              costRows.push({
-                timestamp,
-                userEmail,
-                sessionId,
-                model: extractAttrString(pointAttrs, ATTR.MODEL, ''),
-                costUsd,
-                querySource: extractAttrString(pointAttrs, ATTR.QUERY_SOURCE),
-                agentName: extractAttrString(pointAttrs, ATTR.AGENT_NAME),
-                speed: extractAttrString(pointAttrs, ATTR.SPEED),
-                effort: extractAttrString(pointAttrs, ATTR.EFFORT),
-                skillName: extractAttrString(pointAttrs, ATTR.SKILL_NAME),
-                pluginId,
-                appVersion,
-              });
+            if (!sessionId || !startTimeNs) {
               continue;
             }
 
-            if (metricName === METRIC.TOKEN_USAGE) {
-              const tokenCount = dataPointInt(point) ?? 0;
+            await upsertSession(db, {
+              sessionId,
+              userEmail,
+              appVersion,
+              timestamp,
+            });
+
+            if (
+              metricName === METRIC.COST_USAGE ||
+              metricName === METRIC.TOKEN_USAGE
+            ) {
+              if (!endTimeNs) {
+                continue;
+              }
+              const key = `${sessionId}\u0000${startTimeNs}\u0000${endTimeNs}`;
               const pluginId = await resolvePluginIdFromAttrs(
                 db,
                 pluginIdCache,
                 pointAttrs,
               );
-              tokenRows.push({
-                timestamp,
-                userEmail,
-                sessionId,
-                model: extractAttrString(pointAttrs, ATTR.MODEL, ''),
-                tokenType: extractAttrString(pointAttrs, ATTR.TYPE, ''),
-                tokenCount,
-                querySource: extractAttrString(pointAttrs, ATTR.QUERY_SOURCE),
-                agentName: extractAttrString(pointAttrs, ATTR.AGENT_NAME),
-                speed: extractAttrString(pointAttrs, ATTR.SPEED),
-                effort: extractAttrString(pointAttrs, ATTR.EFFORT),
-                skillName: extractAttrString(pointAttrs, ATTR.SKILL_NAME),
-                pluginId,
-                appVersion,
-              });
+              const model = extractAttrString(pointAttrs, ATTR.MODEL, '');
+              const existingGroup = usageGroups.get(key);
+              const createdGroup: UsageEventGroup = {
+                row: {
+                  sessionId,
+                  startTimeNs,
+                  endTimeNs,
+                  model,
+                  querySource: extractAttrString(pointAttrs, ATTR.QUERY_SOURCE),
+                  agentName: extractAttrString(pointAttrs, ATTR.AGENT_NAME),
+                  speed: extractAttrString(pointAttrs, ATTR.SPEED),
+                  effort: extractAttrString(pointAttrs, ATTR.EFFORT),
+                  skillName: extractAttrString(pointAttrs, ATTR.SKILL_NAME),
+                  pluginId,
+                },
+                tokens: new Map(),
+              };
+              const group = existingGroup ?? createdGroup;
+              if (!existingGroup) {
+                usageGroups.set(key, group);
+              }
+              if (!group.row.model && model) {
+                group.row.model = model;
+              }
+              if (group.row.pluginId === null && pluginId !== null) {
+                group.row.pluginId = pluginId;
+              }
+
+              if (metricName === METRIC.COST_USAGE) {
+                const { asDouble: costUsd = 0 } = dataPointValue(point);
+                group.costUsd = costUsd;
+                continue;
+              }
+
+              const tokenType = extractAttrString(pointAttrs, ATTR.TYPE, '');
+              if (tokenType) {
+                group.tokens.set(tokenType, dataPointInt(point) ?? 0);
+              }
               continue;
             }
 
@@ -140,10 +166,8 @@ metricsRoute.post(
               const count = dataPointInt(point) ?? 0;
               sessionRows.push({
                 timestamp,
-                userEmail,
                 sessionId,
                 count,
-                appVersion,
               });
               continue;
             }
@@ -152,11 +176,9 @@ metricsRoute.post(
               const { asDouble: durationSec = 0 } = dataPointValue(point);
               activeTimeRows.push({
                 timestamp,
-                userEmail,
                 sessionId,
                 type: extractAttrString(pointAttrs, ATTR.TYPE, ''),
                 durationSec,
-                appVersion,
               });
             }
           }
@@ -165,14 +187,12 @@ metricsRoute.post(
     }
 
     const catalogRows = catalogMapToRows(catalogMap);
+    const usageEventEntries = [...usageGroups.values()];
 
-    // D1 の bound parameters 上限(100)を考慮して 10 行ずつ分割
     await Promise.all([
       ...chunk(rawMetricRows, 10).map((rows) =>
         db.insert(rawMetrics).values(rows),
       ),
-      ...chunk(costRows, 10).map((rows) => db.insert(costUsage).values(rows)),
-      ...chunk(tokenRows, 10).map((rows) => db.insert(tokenUsage).values(rows)),
       ...chunk(sessionRows, 10).map((rows) =>
         db.insert(sessionCounts).values(rows),
       ),
@@ -192,6 +212,69 @@ metricsRoute.post(
           }),
       ),
     ]);
+
+    const usageEventIds: number[] = [];
+    for (const rows of chunk(usageEventEntries, 10)) {
+      const statements = rows.map((entry) =>
+        db
+          .insert(usageEvents)
+          .values(entry.row)
+          .onConflictDoUpdate({
+            target: [
+              usageEvents.sessionId,
+              usageEvents.startTimeNs,
+              usageEvents.endTimeNs,
+            ],
+            set: { sessionId: sql`excluded.session_id` },
+          })
+          .returning({ id: usageEvents.id }),
+      );
+      const batchResult = await db.batch(
+        statements as unknown as [
+          (typeof statements)[0],
+          ...(typeof statements)[0][],
+        ],
+      );
+      for (const result of batchResult as unknown[]) {
+        const [returnedRow] = result as { id: number }[];
+        if (!returnedRow) {
+          throw new Error('usage_events の UPSERT 後に id を取得できません');
+        }
+        usageEventIds.push(returnedRow.id);
+      }
+    }
+
+    const costRows: InsertCostAmount[] = [];
+    const tokenRows: InsertTokenAmount[] = [];
+    for (const [index, entry] of usageEventEntries.entries()) {
+      const usageEventId = usageEventIds[index];
+      if (usageEventId === undefined) {
+        throw new Error('usage_events と amount 行の対応に失敗しました');
+      }
+      if (entry.costUsd !== undefined) {
+        costRows.push({ usageEventId, costUsd: entry.costUsd });
+      }
+      for (const [tokenType, tokenCount] of entry.tokens) {
+        tokenRows.push({ usageEventId, tokenType, tokenCount });
+      }
+    }
+
+    const amountStatements = [
+      ...chunk(costRows, 10).map((rows) =>
+        db.insert(costAmounts).values(rows).onConflictDoNothing(),
+      ),
+      ...chunk(tokenRows, 10).map((rows) =>
+        db.insert(tokenAmounts).values(rows).onConflictDoNothing(),
+      ),
+    ];
+    if (amountStatements.length > 0) {
+      await db.batch(
+        amountStatements as unknown as [
+          (typeof amountStatements)[0],
+          ...(typeof amountStatements)[0][],
+        ],
+      );
+    }
 
     return c.json({ partialSuccess: {} });
   },

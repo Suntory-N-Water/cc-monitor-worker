@@ -15,14 +15,16 @@ Cloudflare D1(SQLite)
   ├── raw_logs         全ログレコード(7日間保持)
   ├── raw_metrics      全メトリクス dataPoint(7日間保持)
   ├── plugins          プラグインマスタ
+  ├── sessions         セッションマスタ(user_email / app_version)
   ├── skill_events     Skill 起動ログ
   ├── plugin_events    プラグイン ロード・インストール履歴
   ├── api_requests     API リクエストログ
   ├── tool_results     ツール実行ログ
   ├── hook_executions  フック実行ログ
   ├── tool_decisions   ツール許可判断ログ
-  ├── cost_usage       コストメトリクス(USD)
-  ├── token_usage      トークン消費メトリクス
+  ├── usage_events     API 使用イベント
+  ├── cost_amounts     使用イベントごとのコスト(USD)
+  ├── token_amounts    使用イベントごとのトークン消費
   ├── session_counts   セッション数メトリクス
   ├── active_time      アクティブ時間メトリクス
   ├── event_catalog    event_name ごとに初回・直近の受信時刻とバージョンを記録(保持期間なし)
@@ -48,6 +50,7 @@ sequenceDiagram
         W->>W: valibot でペイロード検証
         W->>D1: INSERT raw_logs(全レコード)
         W->>D1: UPSERT event_catalog(event_name 単位)
+        W->>D1: UPSERT sessions(session_id 単位)
         alt skill_activated
             W->>D1: INSERT skill_events
         else plugin_loaded / plugin_installed
@@ -66,10 +69,11 @@ sequenceDiagram
         W->>W: valibot でペイロード検証
         W->>D1: INSERT raw_metrics(全 dataPoint)
         W->>D1: UPSERT metric_catalog(metric_name 単位)
+        W->>D1: UPSERT sessions(session_id 単位)
         alt claude_code.cost.usage
-            W->>D1: INSERT cost_usage
+            W->>D1: UPSERT usage_events<br/>INSERT cost_amounts
         else claude_code.token.usage
-            W->>D1: INSERT token_usage
+            W->>D1: UPSERT usage_events<br/>INSERT token_amounts
         else claude_code.session.count
             W->>D1: INSERT session_counts
         else claude_code.active_time.total
@@ -103,32 +107,35 @@ erDiagram
         text marketplace_name
     }
 
+    sessions {
+        text id PK
+        text user_email
+        text app_version
+        text first_seen_at
+        text last_seen_at
+    }
+
     skill_events {
         int id PK
         text timestamp
-        text user_email
         text session_id
         text skill_name
         text invocation_trigger
         text skill_source
         int plugin_id FK
-        text app_version
     }
 
     plugin_events {
         int id PK
         text timestamp
         text event_name
-        text user_email
         text session_id
         int plugin_id FK
-        text app_version
     }
 
     api_requests {
         int id PK
         text timestamp
-        text user_email
         text session_id
         text model
         real cost_usd
@@ -137,26 +144,22 @@ erDiagram
         int output_tokens
         int cache_read_tokens
         int cache_creation_tokens
-        text app_version
     }
 
     tool_results {
         int id PK
         text timestamp
-        text user_email
         text session_id
         text tool_name
         int success
         int duration_ms
         text prompt_id
         text tool_use_id
-        text app_version
     }
 
     hook_executions {
         int id PK
         text timestamp
-        text user_email
         text session_id
         text hook_event
         text hook_name
@@ -166,78 +169,73 @@ erDiagram
         int num_non_blocking_error
         int total_duration_ms
         text prompt_id
-        text app_version
     }
 
-    cost_usage {
+    usage_events {
         int id PK
-        text timestamp
-        text user_email
         text session_id
+        text start_time_ns
+        text end_time_ns
         text model
-        real cost_usd
         text query_source
         text agent_name
         text speed
         text effort
         text skill_name
         int plugin_id FK
-        text app_version
     }
 
-    token_usage {
-        int id PK
-        text timestamp
-        text user_email
-        text session_id
-        text model
+    cost_amounts {
+        int usage_event_id PK
+        real cost_usd
+    }
+
+    token_amounts {
+        int usage_event_id PK
         text token_type
         int token_count
-        text query_source
-        text agent_name
-        text speed
-        text effort
-        text skill_name
-        int plugin_id FK
-        text app_version
     }
 
     session_counts {
         int id PK
         text timestamp
-        text user_email
         text session_id
         int count
-        text app_version
     }
 
     active_time {
         int id PK
         text timestamp
-        text user_email
         text session_id
         text type
         real duration_sec
-        text app_version
     }
 
+    sessions ||--o{ skill_events : "session_id"
+    sessions ||--o{ plugin_events : "session_id"
+    sessions ||--o{ api_requests : "session_id"
+    sessions ||--o{ tool_results : "session_id"
+    sessions ||--o{ hook_executions : "session_id"
+    sessions ||--o{ tool_decisions : "session_id"
+    sessions ||--o{ session_counts : "session_id"
+    sessions ||--o{ active_time : "session_id"
+    sessions ||--o{ usage_events : "session_id"
     plugins ||--o{ skill_events : "plugin_id"
     plugins ||--o{ plugin_events : "plugin_id"
     tool_decisions {
         int id PK
         text timestamp
-        text user_email
         text session_id
         text tool_name
         text decision
         text source
         text prompt_id
         text tool_use_id
-        text app_version
     }
 
-    plugins ||--o{ cost_usage : "plugin_id"
-    plugins ||--o{ token_usage : "plugin_id"
+    plugins ||--o{ usage_events : "plugin_id"
+    usage_events ||--o| cost_amounts : "usage_event_id"
+    usage_events ||--o{ token_amounts : "usage_event_id"
 
     event_catalog {
         text name PK
@@ -258,22 +256,22 @@ erDiagram
 
 ## 収集するデータ
 
-全ログレコードは `raw_logs`、全メトリクス dataPoint は `raw_metrics` に保存される(保持期間7日)。既知のイベント・メトリクスは下記の構造化テーブルにも同時に挿入される。受信したすべての `event_name` / `metric_name` は `event_catalog` / `metric_catalog` に「初めて受信した時刻・バージョン」と「直近で受信した時刻・バージョン」が記録され、こちらは保持期間を設けず残し続ける(ADR 0002 参照)。
+全ログレコードは `raw_logs`、全メトリクス dataPoint は `raw_metrics` に保存される(保持期間7日)。既知のイベント・メトリクスは下記の構造化テーブルにも同時に挿入される。受信したすべての `event_name` / `metric_name` は `event_catalog` / `metric_catalog` に「初めて受信した時刻・バージョン」と「直近で受信した時刻・バージョン」が記録され、こちらは保持期間を設けず残し続ける(ADR 0002 参照)。`user_email` / `app_version` は `sessions` に集約し、各構造化テーブルは `session_id` で参照する。
 
-| イベント / メトリクス                | エンドポイント | 構造化テーブル                                                   |
-| ------------------------------------ | -------------- | ---------------------------------------------------------------- |
-| 全レコード                           | `/v1/logs`     | `raw_logs`(7日) / `event_catalog`(保持期間なし)                  |
-| `skill_activated`                    | `/v1/logs`     | `skill_events`                                                   |
-| `plugin_loaded` / `plugin_installed` | `/v1/logs`     | `plugin_events`                                                  |
-| `api_request`                        | `/v1/logs`     | `api_requests`                                                   |
-| `tool_result`                        | `/v1/logs`     | `tool_results`                                                   |
-| `hook_execution_complete`            | `/v1/logs`     | `hook_executions`                                                |
-| `tool_decision`                      | `/v1/logs`     | `tool_decisions`                                                 |
-| 全 dataPoint                         | `/v1/metrics`  | `raw_metrics`(7日) / `metric_catalog`(保持期間なし)              |
-| `claude_code.cost.usage`             | `/v1/metrics`  | `cost_usage`(query_source / agent_name / speed / effort も保存)  |
-| `claude_code.token.usage`            | `/v1/metrics`  | `token_usage`(query_source / agent_name / speed / effort も保存) |
-| `claude_code.session.count`          | `/v1/metrics`  | `session_counts`                                                 |
-| `claude_code.active_time.total`      | `/v1/metrics`  | `active_time`                                                    |
+| イベント / メトリクス                | エンドポイント | 構造化テーブル                                      |
+| ------------------------------------ | -------------- | --------------------------------------------------- |
+| 全レコード                           | `/v1/logs`     | `raw_logs`(7日) / `event_catalog`(保持期間なし)     |
+| `skill_activated`                    | `/v1/logs`     | `skill_events`                                      |
+| `plugin_loaded` / `plugin_installed` | `/v1/logs`     | `plugin_events`                                     |
+| `api_request`                        | `/v1/logs`     | `api_requests`                                      |
+| `tool_result`                        | `/v1/logs`     | `tool_results`                                      |
+| `hook_execution_complete`            | `/v1/logs`     | `hook_executions`                                   |
+| `tool_decision`                      | `/v1/logs`     | `tool_decisions`                                    |
+| 全 dataPoint                         | `/v1/metrics`  | `raw_metrics`(7日) / `metric_catalog`(保持期間なし) |
+| `claude_code.cost.usage`             | `/v1/metrics`  | `usage_events` / `cost_amounts`                     |
+| `claude_code.token.usage`            | `/v1/metrics`  | `usage_events` / `token_amounts`                    |
+| `claude_code.session.count`          | `/v1/metrics`  | `session_counts`                                    |
+| `claude_code.active_time.total`      | `/v1/metrics`  | `active_time`                                       |
 
 ## セットアップ
 
@@ -378,40 +376,51 @@ SELECT skill_name, COUNT(*) AS cnt FROM skill_events
 GROUP BY skill_name ORDER BY cnt DESC;
 
 -- ユーザー別・Skill 別
-SELECT user_email, skill_name, COUNT(*) AS cnt FROM skill_events
-GROUP BY user_email, skill_name ORDER BY cnt DESC;
+SELECT s.user_email, e.skill_name, COUNT(*) AS cnt
+FROM skill_events e
+JOIN sessions s ON s.id = e.session_id
+GROUP BY s.user_email, e.skill_name ORDER BY cnt DESC;
 
 -- Plugin 別のコスト合計
-SELECT p.plugin_name, SUM(c.cost_usd) AS total_usd
-FROM cost_usage c
-JOIN plugins p ON c.plugin_id = p.id
+SELECT p.plugin_name, SUM(ca.cost_usd) AS total_usd
+FROM usage_events ue
+JOIN cost_amounts ca ON ca.usage_event_id = ue.id
+JOIN plugins p ON ue.plugin_id = p.id
 GROUP BY p.plugin_name ORDER BY total_usd DESC;
 
 -- Subagent 種別別のトークン内訳
 SELECT
-  agent_name,
-  model,
-  SUM(CASE WHEN token_type = 'input' THEN token_count ELSE 0 END) AS input_tokens,
-  SUM(CASE WHEN token_type = 'output' THEN token_count ELSE 0 END) AS output_tokens,
-  SUM(CASE WHEN token_type = 'cacheCreation' THEN token_count ELSE 0 END) AS cache_creation_input_tokens,
-  SUM(CASE WHEN token_type = 'cacheRead' THEN token_count ELSE 0 END) AS cache_read_input_tokens
-FROM token_usage
-WHERE query_source = 'subagent'
-GROUP BY agent_name, model
+  ue.agent_name,
+  ue.model,
+  SUM(CASE WHEN ta.token_type = 'input' THEN ta.token_count ELSE 0 END) AS input_tokens,
+  SUM(CASE WHEN ta.token_type = 'output' THEN ta.token_count ELSE 0 END) AS output_tokens,
+  SUM(CASE WHEN ta.token_type = 'cacheCreation' THEN ta.token_count ELSE 0 END) AS cache_creation_input_tokens,
+  SUM(CASE WHEN ta.token_type = 'cacheRead' THEN ta.token_count ELSE 0 END) AS cache_read_input_tokens
+FROM usage_events ue
+JOIN token_amounts ta ON ta.usage_event_id = ue.id
+WHERE ue.query_source = 'subagent'
+GROUP BY ue.agent_name, ue.model
 ORDER BY output_tokens DESC;
 
 -- Subagent 種別別の USD 合計
 SELECT
-  agent_name,
-  model,
-  speed,
-  effort,
+  ue.agent_name,
+  ue.model,
+  ue.speed,
+  ue.effort,
   COUNT(*) AS requests,
-  SUM(cost_usd) AS total_usd
-FROM cost_usage
-WHERE query_source = 'subagent'
-GROUP BY agent_name, model, speed, effort
+  SUM(ca.cost_usd) AS total_usd
+FROM usage_events ue
+JOIN cost_amounts ca ON ca.usage_event_id = ue.id
+WHERE ue.query_source = 'subagent'
+GROUP BY ue.agent_name, ue.model, ue.speed, ue.effort
 ORDER BY total_usd DESC;
+
+-- 直近セッション
+SELECT id, user_email, app_version, first_seen_at, last_seen_at
+FROM sessions
+ORDER BY last_seen_at DESC
+LIMIT 10;
 ```
 
 ## 新しいメトリクス・イベントの追加

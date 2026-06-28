@@ -26,6 +26,7 @@ import {
   recordCatalogObservation,
 } from '../lib/catalog';
 import { resolvePluginIdFromAttrs } from '../lib/plugin';
+import { upsertSession } from '../lib/session';
 import {
   ATTR,
   EVENT,
@@ -79,6 +80,17 @@ logsRoute.post('/', sValidator('json', OtlpLogsPayloadSchema), async (c) => {
           version: appVersion,
         });
 
+        if (!sessionId) {
+          continue;
+        }
+
+        await upsertSession(db, {
+          sessionId,
+          userEmail,
+          appVersion,
+          timestamp,
+        });
+
         if (eventName === EVENT.SKILL_ACTIVATED) {
           const pluginId = await resolvePluginIdFromAttrs(
             db,
@@ -87,7 +99,6 @@ logsRoute.post('/', sValidator('json', OtlpLogsPayloadSchema), async (c) => {
           );
           skillRows.push({
             timestamp,
-            userEmail,
             sessionId,
             skillName: extractAttrString(attrs, ATTR.SKILL_NAME, ''),
             invocationTrigger: extractAttrString(
@@ -97,7 +108,6 @@ logsRoute.post('/', sValidator('json', OtlpLogsPayloadSchema), async (c) => {
             ),
             skillSource: extractAttrString(attrs, ATTR.SKILL_SOURCE, ''),
             pluginId,
-            appVersion,
           });
           continue;
         }
@@ -117,10 +127,8 @@ logsRoute.post('/', sValidator('json', OtlpLogsPayloadSchema), async (c) => {
           pluginEventRows.push({
             timestamp,
             eventName,
-            userEmail,
             sessionId,
             pluginId,
-            appVersion,
           });
           continue;
         }
@@ -128,7 +136,6 @@ logsRoute.post('/', sValidator('json', OtlpLogsPayloadSchema), async (c) => {
         if (eventName === EVENT.API_REQUEST) {
           apiRequestRows.push({
             timestamp,
-            userEmail,
             sessionId,
             model: extractAttrString(attrs, ATTR.MODEL, ''),
             costUsd: extractAttrDouble(attrs, ATTR.COST_USD, 0),
@@ -141,7 +148,6 @@ logsRoute.post('/', sValidator('json', OtlpLogsPayloadSchema), async (c) => {
               ATTR.CACHE_CREATION_TOKENS,
               0,
             ),
-            appVersion,
           });
           continue;
         }
@@ -149,14 +155,12 @@ logsRoute.post('/', sValidator('json', OtlpLogsPayloadSchema), async (c) => {
         if (eventName === EVENT.TOOL_RESULT) {
           toolResultRows.push({
             timestamp,
-            userEmail,
             sessionId,
             toolName: extractAttrString(attrs, ATTR.TOOL_NAME, ''),
             success: extractAttrBool(attrs, ATTR.SUCCESS, false),
             durationMs: extractAttrInt(attrs, ATTR.DURATION_MS, 0),
             promptId: extractAttrString(attrs, ATTR.PROMPT_ID, ''),
             toolUseId: extractAttrString(attrs, ATTR.TOOL_USE_ID, ''),
-            appVersion,
           });
           continue;
         }
@@ -164,7 +168,6 @@ logsRoute.post('/', sValidator('json', OtlpLogsPayloadSchema), async (c) => {
         if (eventName === EVENT.HOOK_EXECUTION_COMPLETE) {
           hookExecutionRows.push({
             timestamp,
-            userEmail,
             sessionId,
             hookEvent: extractAttrString(attrs, ATTR.HOOK_EVENT, ''),
             hookName: extractAttrString(attrs, ATTR.HOOK_NAME, ''),
@@ -178,7 +181,6 @@ logsRoute.post('/', sValidator('json', OtlpLogsPayloadSchema), async (c) => {
             ),
             totalDurationMs: extractAttrInt(attrs, ATTR.TOTAL_DURATION_MS, 0),
             promptId: extractAttrString(attrs, ATTR.PROMPT_ID, ''),
-            appVersion,
           });
           continue;
         }
@@ -186,14 +188,12 @@ logsRoute.post('/', sValidator('json', OtlpLogsPayloadSchema), async (c) => {
         if (eventName === EVENT.TOOL_DECISION) {
           toolDecisionRows.push({
             timestamp,
-            userEmail,
             sessionId,
             toolName: extractAttrString(attrs, ATTR.TOOL_NAME, ''),
             decision: extractAttrString(attrs, ATTR.DECISION, ''),
             source: extractAttrString(attrs, ATTR.SOURCE, ''),
             promptId: extractAttrString(attrs, ATTR.PROMPT_ID, ''),
             toolUseId: extractAttrString(attrs, ATTR.TOOL_USE_ID, ''),
-            appVersion,
           });
         }
       }
