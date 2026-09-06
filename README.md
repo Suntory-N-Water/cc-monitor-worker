@@ -15,13 +15,17 @@ Cloudflare D1(SQLite)
   ├── raw_logs         全ログレコード(7日間保持)
   ├── raw_metrics      全メトリクス dataPoint(7日間保持)
   ├── plugins          プラグインマスタ
-  ├── sessions         セッションマスタ(user_email / app_version)
+  ├── sessions         セッションマスタ(user_email / app_version / entrypoint / terminal_type)
   ├── skill_events     Skill 起動ログ
   ├── plugin_events    プラグイン ロード・インストール履歴
   ├── api_requests     API リクエストログ
+  ├── api_errors       API エラーログ(レート制限を含む)
   ├── tool_results     ツール実行ログ
   ├── hook_executions  フック実行ログ
   ├── tool_decisions   ツール許可判断ログ
+  ├── user_prompt      ユーザー入力ログ(本文は除く)
+  ├── compaction       /compact 実行ログ
+  ├── subagent_completions  サブエージェント完了ログ
   ├── usage_events     API 使用イベント
   ├── cost_amounts     使用イベントごとのコスト(USD)
   ├── token_amounts    使用イベントごとのトークン消費
@@ -57,10 +61,18 @@ sequenceDiagram
             W->>D1: UPSERT plugins<br/>INSERT plugin_events
         else api_request
             W->>D1: INSERT api_requests
+        else api_error
+            W->>D1: INSERT api_errors
         else tool_result
             W->>D1: INSERT tool_results
         else hook_execution_complete
             W->>D1: INSERT hook_executions
+        else user_prompt
+            W->>D1: INSERT user_prompt
+        else compaction
+            W->>D1: INSERT compaction
+        else subagent_completed
+            W->>D1: INSERT subagent_completions
         end
         W-->>CC: 200 { partialSuccess: {} }
 
@@ -113,6 +125,8 @@ erDiagram
         text app_version
         text first_seen_at
         text last_seen_at
+        text entrypoint
+        text terminal_type
     }
 
     skill_events {
@@ -144,6 +158,66 @@ erDiagram
         int output_tokens
         int cache_read_tokens
         int cache_creation_tokens
+        text query_source
+        text prompt_id
+        text speed
+        text effort
+        int event_sequence
+        int cost_usd_micros
+        text request_id
+    }
+
+    api_errors {
+        int id PK
+        text timestamp
+        text session_id
+        text model
+        text error
+        int status_code
+        int duration_ms
+        int attempt
+        text request_id
+        text prompt_id
+    }
+
+    user_prompt {
+        int id PK
+        text timestamp
+        text session_id
+        text prompt_id
+        int prompt_length
+        text command_name
+        text command_source
+    }
+
+    compaction {
+        int id PK
+        text timestamp
+        text session_id
+        text trigger
+        int success
+        int pre_tokens
+        int post_tokens
+        int duration_ms
+        text precompute_reuse
+        text prompt_id
+    }
+
+    subagent_completions {
+        int id PK
+        text timestamp
+        text session_id
+        text agent_type
+        text agent_source
+        int is_built_in
+        int is_async
+        int total_tokens
+        int total_tool_uses
+        int duration_ms
+        text model
+        text final_model
+        int model_swapped
+        text prompt_id
     }
 
     tool_results {
@@ -214,6 +288,10 @@ erDiagram
     sessions ||--o{ skill_events : "session_id"
     sessions ||--o{ plugin_events : "session_id"
     sessions ||--o{ api_requests : "session_id"
+    sessions ||--o{ api_errors : "session_id"
+    sessions ||--o{ user_prompt : "session_id"
+    sessions ||--o{ compaction : "session_id"
+    sessions ||--o{ subagent_completions : "session_id"
     sessions ||--o{ tool_results : "session_id"
     sessions ||--o{ hook_executions : "session_id"
     sessions ||--o{ tool_decisions : "session_id"
@@ -264,14 +342,20 @@ erDiagram
 | `skill_activated`                    | `/v1/logs`     | `skill_events`                                      |
 | `plugin_loaded` / `plugin_installed` | `/v1/logs`     | `plugin_events`                                     |
 | `api_request`                        | `/v1/logs`     | `api_requests`                                      |
+| `api_error`                          | `/v1/logs`     | `api_errors`                                        |
 | `tool_result`                        | `/v1/logs`     | `tool_results`                                      |
 | `hook_execution_complete`            | `/v1/logs`     | `hook_executions`                                   |
 | `tool_decision`                      | `/v1/logs`     | `tool_decisions`                                    |
+| `user_prompt`                        | `/v1/logs`     | `user_prompt`                                       |
+| `compaction`                         | `/v1/logs`     | `compaction`                                        |
+| `subagent_completed`                 | `/v1/logs`     | `subagent_completions`                              |
 | 全 dataPoint                         | `/v1/metrics`  | `raw_metrics`(7日) / `metric_catalog`(保持期間なし) |
 | `claude_code.cost.usage`             | `/v1/metrics`  | `usage_events` / `cost_amounts`                     |
 | `claude_code.token.usage`            | `/v1/metrics`  | `usage_events` / `token_amounts`                    |
 | `claude_code.session.count`          | `/v1/metrics`  | `session_counts`                                    |
 | `claude_code.active_time.total`      | `/v1/metrics`  | `active_time`                                       |
+
+`user_prompt` の入力本文は Claude Code 側で `<REDACTED>` に置き換えられて届くため、保存するのは `prompt_length` だけである。`app.entrypoint` と `terminal.type` はセッション単位の情報なので `sessions` に集約する。この 2 つは `/v1/metrics` の dataPoint には含まれないので、メトリクス受信時の UPSERT では既存の値をそのまま残す。
 
 ## セットアップ
 
