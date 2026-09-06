@@ -3,21 +3,29 @@ import { sql } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/d1';
 import { Hono } from 'hono';
 import {
+  type InsertApiError,
   type InsertApiRequest,
+  type InsertCompaction,
   type InsertHookExecution,
   type InsertPluginEvent,
   type InsertRawLog,
   type InsertSkillEvent,
+  type InsertSubagentCompletion,
   type InsertToolDecision,
   type InsertToolResult,
+  type InsertUserPrompt,
+  apiErrors,
   apiRequests,
+  compaction,
   eventCatalog,
   hookExecutions,
   pluginEvents,
   rawLogs,
   skillEvents,
+  subagentCompletions,
   toolDecisions,
   toolResults,
+  userPrompt,
 } from '../db/schema';
 import { chunk } from '../lib/array';
 import {
@@ -52,6 +60,10 @@ logsRoute.post('/', sValidator('json', OtlpLogsPayloadSchema), async (c) => {
   const apiRequestRows: InsertApiRequest[] = [];
   const toolResultRows: InsertToolResult[] = [];
   const hookExecutionRows: InsertHookExecution[] = [];
+  const compactionRows: InsertCompaction[] = [];
+  const userPromptRows: InsertUserPrompt[] = [];
+  const apiErrorRows: InsertApiError[] = [];
+  const subagentCompletionRows: InsertSubagentCompletion[] = [];
   const catalogMap = new Map<string, CatalogEntry>();
 
   for (const resourceLog of payload.resourceLogs ?? []) {
@@ -89,6 +101,8 @@ logsRoute.post('/', sValidator('json', OtlpLogsPayloadSchema), async (c) => {
           userEmail,
           appVersion,
           timestamp,
+          entrypoint: extractAttrString(attrs, ATTR.APP_ENTRYPOINT),
+          terminalType: extractAttrString(attrs, ATTR.TERMINAL_TYPE),
         });
 
         if (eventName === EVENT.SKILL_ACTIVATED) {
@@ -148,6 +162,13 @@ logsRoute.post('/', sValidator('json', OtlpLogsPayloadSchema), async (c) => {
               ATTR.CACHE_CREATION_TOKENS,
               0,
             ),
+            querySource: extractAttrString(attrs, ATTR.QUERY_SOURCE),
+            promptId: extractAttrString(attrs, ATTR.PROMPT_ID),
+            speed: extractAttrString(attrs, ATTR.SPEED),
+            effort: extractAttrString(attrs, ATTR.EFFORT),
+            eventSequence: extractAttrInt(attrs, ATTR.EVENT_SEQUENCE),
+            costUsdMicros: extractAttrInt(attrs, ATTR.COST_USD_MICROS),
+            requestId: extractAttrString(attrs, ATTR.REQUEST_ID),
           });
           continue;
         }
@@ -195,6 +216,69 @@ logsRoute.post('/', sValidator('json', OtlpLogsPayloadSchema), async (c) => {
             promptId: extractAttrString(attrs, ATTR.PROMPT_ID, ''),
             toolUseId: extractAttrString(attrs, ATTR.TOOL_USE_ID, ''),
           });
+          continue;
+        }
+
+        if (eventName === EVENT.COMPACTION) {
+          // duration_ms / pre_tokens / post_tokens / success は stringValue で届く
+          compactionRows.push({
+            timestamp,
+            sessionId,
+            trigger: extractAttrString(attrs, ATTR.TRIGGER, ''),
+            success: extractAttrBool(attrs, ATTR.SUCCESS, false),
+            preTokens: extractAttrInt(attrs, ATTR.PRE_TOKENS, 0),
+            postTokens: extractAttrInt(attrs, ATTR.POST_TOKENS, 0),
+            durationMs: extractAttrInt(attrs, ATTR.DURATION_MS, 0),
+            precomputeReuse: extractAttrString(attrs, ATTR.PRECOMPUTE_REUSE),
+            promptId: extractAttrString(attrs, ATTR.PROMPT_ID),
+          });
+          continue;
+        }
+
+        if (eventName === EVENT.USER_PROMPT) {
+          // prompt 本文は <REDACTED> で届くため保存しない
+          userPromptRows.push({
+            timestamp,
+            sessionId,
+            promptId: extractAttrString(attrs, ATTR.PROMPT_ID),
+            promptLength: extractAttrInt(attrs, ATTR.PROMPT_LENGTH),
+            commandName: extractAttrString(attrs, ATTR.COMMAND_NAME),
+            commandSource: extractAttrString(attrs, ATTR.COMMAND_SOURCE),
+          });
+          continue;
+        }
+
+        if (eventName === EVENT.API_ERROR) {
+          apiErrorRows.push({
+            timestamp,
+            sessionId,
+            model: extractAttrString(attrs, ATTR.MODEL, ''),
+            error: extractAttrString(attrs, ATTR.ERROR),
+            statusCode: extractAttrInt(attrs, ATTR.STATUS_CODE),
+            durationMs: extractAttrInt(attrs, ATTR.DURATION_MS),
+            attempt: extractAttrInt(attrs, ATTR.ATTEMPT),
+            requestId: extractAttrString(attrs, ATTR.REQUEST_ID),
+            promptId: extractAttrString(attrs, ATTR.PROMPT_ID),
+          });
+          continue;
+        }
+
+        if (eventName === EVENT.SUBAGENT_COMPLETED) {
+          subagentCompletionRows.push({
+            timestamp,
+            sessionId,
+            agentType: extractAttrString(attrs, ATTR.AGENT_TYPE, ''),
+            agentSource: extractAttrString(attrs, ATTR.AGENT_SOURCE),
+            isBuiltIn: extractAttrBool(attrs, ATTR.IS_BUILT_IN),
+            isAsync: extractAttrBool(attrs, ATTR.IS_ASYNC),
+            totalTokens: extractAttrInt(attrs, ATTR.TOTAL_TOKENS),
+            totalToolUses: extractAttrInt(attrs, ATTR.TOTAL_TOOL_USES),
+            durationMs: extractAttrInt(attrs, ATTR.DURATION_MS),
+            model: extractAttrString(attrs, ATTR.MODEL),
+            finalModel: extractAttrString(attrs, ATTR.FINAL_MODEL),
+            modelSwapped: extractAttrBool(attrs, ATTR.MODEL_SWAPPED),
+            promptId: extractAttrString(attrs, ATTR.PROMPT_ID),
+          });
         }
       }
     }
@@ -219,6 +303,16 @@ logsRoute.post('/', sValidator('json', OtlpLogsPayloadSchema), async (c) => {
       : null,
     toolDecisionRows.length > 0
       ? db.insert(toolDecisions).values(toolDecisionRows)
+      : null,
+    compactionRows.length > 0
+      ? db.insert(compaction).values(compactionRows)
+      : null,
+    userPromptRows.length > 0
+      ? db.insert(userPrompt).values(userPromptRows)
+      : null,
+    apiErrorRows.length > 0 ? db.insert(apiErrors).values(apiErrorRows) : null,
+    subagentCompletionRows.length > 0
+      ? db.insert(subagentCompletions).values(subagentCompletionRows)
       : null,
     // D1 の bound parameters 上限を考慮して 10 行ずつに分割
     ...chunk(catalogRows, 10).map((rows) =>

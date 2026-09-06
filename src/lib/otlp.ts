@@ -104,6 +104,29 @@ export const ATTR = {
   TOTAL_DURATION_MS: 'total_duration_ms',
   DECISION: 'decision',
   SOURCE: 'source',
+  APP_ENTRYPOINT: 'app.entrypoint',
+  TERMINAL_TYPE: 'terminal.type',
+  EVENT_SEQUENCE: 'event.sequence',
+  COST_USD_MICROS: 'cost_usd_micros',
+  REQUEST_ID: 'request_id',
+  TRIGGER: 'trigger',
+  PRE_TOKENS: 'pre_tokens',
+  POST_TOKENS: 'post_tokens',
+  PRECOMPUTE_REUSE: 'precompute_reuse',
+  PROMPT_LENGTH: 'prompt_length',
+  COMMAND_NAME: 'command_name',
+  COMMAND_SOURCE: 'command_source',
+  ERROR: 'error',
+  STATUS_CODE: 'status_code',
+  ATTEMPT: 'attempt',
+  AGENT_TYPE: 'agent_type',
+  AGENT_SOURCE: 'agent.source',
+  IS_BUILT_IN: 'is_built_in',
+  IS_ASYNC: 'is_async',
+  TOTAL_TOKENS: 'total_tokens',
+  TOTAL_TOOL_USES: 'total_tool_uses',
+  FINAL_MODEL: 'final_model',
+  MODEL_SWAPPED: 'model_swapped',
 } as const;
 
 export const EVENT = {
@@ -114,6 +137,10 @@ export const EVENT = {
   TOOL_RESULT: 'tool_result',
   HOOK_EXECUTION_COMPLETE: 'hook_execution_complete',
   TOOL_DECISION: 'tool_decision',
+  COMPACTION: 'compaction',
+  USER_PROMPT: 'user_prompt',
+  API_ERROR: 'api_error',
+  SUBAGENT_COMPLETED: 'subagent_completed',
 } as const;
 
 export const METRIC = {
