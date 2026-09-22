@@ -18,6 +18,7 @@ import {
   usageEvents,
 } from '../db/schema';
 import { chunk } from '../lib/array';
+import { chunkForInsert } from '../lib/d1';
 import {
   type CatalogEntry,
   catalogMapToRows,
@@ -204,16 +205,16 @@ metricsRoute.post(
     const usageEventEntries = [...usageGroups.values()];
 
     await Promise.all([
-      ...chunk(rawMetricRows, 10).map((rows) =>
+      ...chunkForInsert(rawMetrics, rawMetricRows).map((rows) =>
         db.insert(rawMetrics).values(rows),
       ),
-      ...chunk(sessionRows, 10).map((rows) =>
+      ...chunkForInsert(sessionCounts, sessionRows).map((rows) =>
         db.insert(sessionCounts).values(rows),
       ),
-      ...chunk(activeTimeRows, 10).map((rows) =>
+      ...chunkForInsert(activeTime, activeTimeRows).map((rows) =>
         db.insert(activeTime).values(rows),
       ),
-      ...chunk(catalogRows, 10).map((rows) =>
+      ...chunkForInsert(metricCatalog, catalogRows).map((rows) =>
         db
           .insert(metricCatalog)
           .values(rows)
@@ -286,10 +287,10 @@ metricsRoute.post(
     }
 
     const amountStatements = [
-      ...chunk(costRows, 10).map((rows) =>
+      ...chunkForInsert(costAmounts, costRows).map((rows) =>
         db.insert(costAmounts).values(rows).onConflictDoNothing(),
       ),
-      ...chunk(tokenRows, 10).map((rows) =>
+      ...chunkForInsert(tokenAmounts, tokenRows).map((rows) =>
         db.insert(tokenAmounts).values(rows).onConflictDoNothing(),
       ),
     ];

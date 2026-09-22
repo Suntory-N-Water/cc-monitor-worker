@@ -27,7 +27,7 @@ import {
   toolResults,
   userPrompt,
 } from '../db/schema';
-import { chunk } from '../lib/array';
+import { chunkForInsert } from '../lib/d1';
 import {
   type CatalogEntry,
   catalogMapToRows,
@@ -287,35 +287,40 @@ logsRoute.post('/', sValidator('json', OtlpLogsPayloadSchema), async (c) => {
   const catalogRows = catalogMapToRows(catalogMap);
 
   await Promise.all([
-    rawLogRows.length > 0 ? db.insert(rawLogs).values(rawLogRows) : null,
-    skillRows.length > 0 ? db.insert(skillEvents).values(skillRows) : null,
-    pluginEventRows.length > 0
-      ? db.insert(pluginEvents).values(pluginEventRows)
-      : null,
-    apiRequestRows.length > 0
-      ? db.insert(apiRequests).values(apiRequestRows)
-      : null,
-    toolResultRows.length > 0
-      ? db.insert(toolResults).values(toolResultRows)
-      : null,
-    hookExecutionRows.length > 0
-      ? db.insert(hookExecutions).values(hookExecutionRows)
-      : null,
-    toolDecisionRows.length > 0
-      ? db.insert(toolDecisions).values(toolDecisionRows)
-      : null,
-    compactionRows.length > 0
-      ? db.insert(compaction).values(compactionRows)
-      : null,
-    userPromptRows.length > 0
-      ? db.insert(userPrompt).values(userPromptRows)
-      : null,
-    apiErrorRows.length > 0 ? db.insert(apiErrors).values(apiErrorRows) : null,
-    subagentCompletionRows.length > 0
-      ? db.insert(subagentCompletions).values(subagentCompletionRows)
-      : null,
-    // D1 の bound parameters 上限を考慮して 10 行ずつに分割
-    ...chunk(catalogRows, 10).map((rows) =>
+    ...chunkForInsert(rawLogs, rawLogRows).map((rows) =>
+      db.insert(rawLogs).values(rows),
+    ),
+    ...chunkForInsert(skillEvents, skillRows).map((rows) =>
+      db.insert(skillEvents).values(rows),
+    ),
+    ...chunkForInsert(pluginEvents, pluginEventRows).map((rows) =>
+      db.insert(pluginEvents).values(rows),
+    ),
+    ...chunkForInsert(apiRequests, apiRequestRows).map((rows) =>
+      db.insert(apiRequests).values(rows),
+    ),
+    ...chunkForInsert(toolResults, toolResultRows).map((rows) =>
+      db.insert(toolResults).values(rows),
+    ),
+    ...chunkForInsert(hookExecutions, hookExecutionRows).map((rows) =>
+      db.insert(hookExecutions).values(rows),
+    ),
+    ...chunkForInsert(toolDecisions, toolDecisionRows).map((rows) =>
+      db.insert(toolDecisions).values(rows),
+    ),
+    ...chunkForInsert(compaction, compactionRows).map((rows) =>
+      db.insert(compaction).values(rows),
+    ),
+    ...chunkForInsert(userPrompt, userPromptRows).map((rows) =>
+      db.insert(userPrompt).values(rows),
+    ),
+    ...chunkForInsert(apiErrors, apiErrorRows).map((rows) =>
+      db.insert(apiErrors).values(rows),
+    ),
+    ...chunkForInsert(subagentCompletions, subagentCompletionRows).map((rows) =>
+      db.insert(subagentCompletions).values(rows),
+    ),
+    ...chunkForInsert(eventCatalog, catalogRows).map((rows) =>
       db
         .insert(eventCatalog)
         .values(rows)
