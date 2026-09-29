@@ -36,7 +36,7 @@ import {
   nanoToIso,
 } from '../lib/otlp';
 
-export const metricsRoute = new Hono<{ Bindings: CloudflareBindings }>();
+export const metricsRoute = new Hono<{ Bindings: Env }>();
 
 type UsageEventGroup = {
   row: InsertUsageEvent;

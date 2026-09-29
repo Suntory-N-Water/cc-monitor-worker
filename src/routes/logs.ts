@@ -46,7 +46,7 @@ import {
   nanoToIso,
 } from '../lib/otlp';
 
-export const logsRoute = new Hono<{ Bindings: CloudflareBindings }>();
+export const logsRoute = new Hono<{ Bindings: Env }>();
 
 logsRoute.post('/', sValidator('json', OtlpLogsPayloadSchema), async (c) => {
   const payload = c.req.valid('json');

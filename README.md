@@ -372,7 +372,7 @@ bun install
 openssl rand -base64 32
 
 # Cloudflare に登録(デプロイ後も永続される)
-bunx wrangler secret put OTEL_BEARER_TOKEN
+bunx wrangler secret put OTEL_BEARER_TOKEN --name cc-monitor-worker
 ```
 
 ### 3. ローカル開発用設定
@@ -449,7 +449,7 @@ claude.ai の Admin Settings > Claude Code > Managed settings に投入する JS
 | コマンド                       | 内容                                  |
 | ------------------------------ | ------------------------------------- |
 | `bun run dev`                  | ローカルサーバー起動                  |
-| `bun run dev --test-scheduled` | Cron ハンドラーのローカルテスト有効化 |
+| `bun run build`                | ビルドと `.cloudflare/types` の型再生成 |
 | `bun run ai-check`             | format + lint + 型チェック            |
 | `bun run db:generate`          | スキーマ変更からマイグレーション生成  |
 | `bun run db:migrate:local`     | ローカル D1 にマイグレーション適用    |
@@ -539,5 +539,5 @@ bun run db:migrate:remote  # 本番反映
 
 漏洩時は以下の手順で更新する:
 
-1. `bunx wrangler secret put OTEL_BEARER_TOKEN` で新しい値を登録
+1. `bunx wrangler secret put OTEL_BEARER_TOKEN --name cc-monitor-worker` で新しい値を登録
 2. claude.ai Admin Settings の managed settings を新しいトークンで更新

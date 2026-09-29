@@ -22,6 +22,6 @@
     "resolveJsonModule": true,
     "isolatedModules": true,
     "noEmit": true,
-    "types": ["node", "bun-types", "./worker-configuration.d.ts"]
+    "types": ["node", "bun-types", "./.cloudflare/types/index.d.ts"]
   }
 }

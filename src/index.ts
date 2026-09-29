@@ -6,9 +6,9 @@ import { rawLogs, rawMetrics } from './db/schema';
 import { logsRoute } from './routes/logs';
 import { metricsRoute } from './routes/metrics';
 
-type Env = { Bindings: CloudflareBindings };
+type AppEnv = { Bindings: Env };
 
-const v1 = new Hono<Env>();
+const v1 = new Hono<AppEnv>();
 
 v1.use('*', async (c, next) => {
   const authHeader = c.req.header('Authorization');
@@ -21,7 +21,7 @@ v1.use('*', async (c, next) => {
 v1.route('/logs', logsRoute);
 v1.route('/metrics', metricsRoute);
 
-const app = new Hono<Env>();
+const app = new Hono<AppEnv>();
 
 app.use('*', logger());
 app.get('/', (c) => c.text('OK'));
@@ -29,7 +29,7 @@ app.route('/v1', v1);
 
 export default {
   fetch: app.fetch,
-  async scheduled(_event: ScheduledEvent, env: CloudflareBindings) {
+  async scheduled(_event: ScheduledEvent, env: Env) {
     const db = drizzle(env.claude_code_analytics_db);
     const cutoff = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
     await Promise.all([

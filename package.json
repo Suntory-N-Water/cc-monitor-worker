@@ -4,9 +4,9 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "dev": "bunx wrangler dev",
-    "deploy": "bunx wrangler deploy --minify",
-    "cf-typegen": "bunx wrangler types --env-interface CloudflareBindings",
+    "dev": "cf dev",
+    "build": "cf build",
+    "deploy": "cf deploy",
     "format": "biome format --write .",
     "lint": "biome lint .",
     "lint:ai": "set -o pipefail && biome lint . --reporter=github 2>&1 | { grep '^::' || true; }",
@@ -16,8 +16,8 @@
     "type-check:ai": "tsc --noEmit 2>&1",
     "ai-check": "bun run format && bun run lint:ai && bun run type-check:ai",
     "db:generate": "drizzle-kit generate",
-    "db:migrate:local": "bunx wrangler d1 migrations apply claude-code-analytics-db --local",
-    "db:migrate:remote": "bunx wrangler d1 migrations apply claude-code-analytics-db --remote"
+    "db:migrate:local": "cf d1 migrations apply a2eb0bf3-c1ed-4582-b700-a7a758336f1e --dir drizzle/migrations --local --persist-to .wrangler/state",
+    "db:migrate:remote": "cf d1 migrations apply a2eb0bf3-c1ed-4582-b700-a7a758336f1e --dir drizzle/migrations"
   },
   "dependencies": {
     "@hono/standard-validator": "^0.2.3",
@@ -30,8 +30,9 @@
     "@tsconfig/strictest": "^2.0.8",
     "@types/bun": "^1.4.0",
     "@types/node": "^25.9.5",
+    "cf": "^1.0.0-beta.5",
     "drizzle-kit": "^0.31.10",
     "typescript": "^6.0.3",
-    "wrangler": "^4.127.0"
+    "wrangler": "^4.144.0"
   }
 }

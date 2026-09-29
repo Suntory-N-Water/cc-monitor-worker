@@ -13,7 +13,7 @@
       "**/*.jsonc",
       "!node_modules",
       "!**/dist",
-      "!**/worker-configuration.d.ts",
+      "!**/.cloudflare",
       "!**/.wrangler"
     ]
   },
@@ -30,7 +30,7 @@
       "**/*.jsonc",
       "!node_modules",
       "!**/dist",
-      "!**/worker-configuration.d.ts"
+      "!**/.cloudflare"
     ]
   },
   "linter": {
